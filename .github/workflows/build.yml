@@ -1,0 +1,106 @@
+name: Compilar instaladores
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write   # necesario para adjuntar archivos a la Release
+
+env:
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  pruebas:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "${{ env.PYTHON_VERSION }}" }
+      - run: pip install -r requirements.txt pytest
+      - run: python -m pytest -q
+
+  linux:
+    needs: pruebas
+    runs-on: ubuntu-22.04   # glibc antigua = el binario corre en más distribuciones
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "${{ env.PYTHON_VERSION }}" }
+      - name: Versión
+        run: echo "VERSION=$(if [[ '${{ github.ref_type }}' == 'tag' ]]; then echo '${{ github.ref_name }}' | sed 's/^v//'; else cat VERSION; fi)" >> $GITHUB_ENV
+      - run: pip install -r requirements.txt pyinstaller
+      - run: flet pack main.py --name OweeStudent -D -y
+      - name: Paquete tar.gz con instalador de usuario (sin root)
+        run: |
+          mkdir -p paquete/OweeStudent-${VERSION}-linux/app
+          cp -r dist/OweeStudent/. paquete/OweeStudent-${VERSION}-linux/app/
+          cp packaging/linux/install.sh packaging/linux/uninstall.sh paquete/OweeStudent-${VERSION}-linux/
+          tar -C paquete -czf OweeStudent-${VERSION}-linux-x86_64.tar.gz OweeStudent-${VERSION}-linux
+      - name: Paquete .deb
+        run: packaging/linux/build_deb.sh dist/OweeStudent "$VERSION" "oweestudent_${VERSION}_amd64.deb"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux
+          path: |
+            OweeStudent-*-linux-x86_64.tar.gz
+            oweestudent_*_amd64.deb
+
+  windows:
+    needs: pruebas
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "${{ env.PYTHON_VERSION }}" }
+      - name: Versión
+        shell: bash
+        run: echo "OWEE_VERSION=$(if [[ '${{ github.ref_type }}' == 'tag' ]]; then echo '${{ github.ref_name }}' | sed 's/^v//'; else cat VERSION; fi)" >> $GITHUB_ENV
+      - run: pip install -r requirements.txt pyinstaller
+      - run: flet pack main.py --name OweeStudent -D -y
+      - name: Instalador por usuario (Inno Setup, sin administrador)
+        run: |
+          choco install innosetup -y --no-progress
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" packaging\windows\oweestudent.iss
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: salida/*.exe
+
+  android:
+    needs: pruebas
+    runs-on: ubuntu-latest
+    continue-on-error: true   # experimental: no bloquea la Release si falla
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "${{ env.PYTHON_VERSION }}" }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: "17" }
+      - name: Versión
+        run: echo "VERSION=$(if [[ '${{ github.ref_type }}' == 'tag' ]]; then echo '${{ github.ref_name }}' | sed 's/^v//'; else cat VERSION; fi)" >> $GITHUB_ENV
+      - run: pip install "flet==0.28.3" "flet-cli==0.28.3"
+      - run: flet build apk --build-version "$VERSION" -v
+      - name: Renombrar
+        run: cp build/apk/*.apk "OweeStudent-${VERSION}-android.apk"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android
+          path: OweeStudent-*-android.apk
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v') && needs.linux.result == 'success' && needs.windows.result == 'success'
+    needs: [linux, windows, android]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: descargas
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: descargas/*
+          generate_release_notes: true

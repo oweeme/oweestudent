@@ -1,0 +1,5 @@
+flet>=0.28,<0.70
+pypdf
+python-docx
+openpyxl
+qrcode[png]
