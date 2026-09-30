@@ -51,4 +51,4 @@ Publicar: `git tag v0.1.0 && git push --tags` → GitHub Actions compila y adjun
 
 
 ---
-© 2026 Hector Martinez — [www.oweeme.com](https://www.oweeme.com)
+Licencia [MIT](LICENSE). © 2026 Hector Martinez — [www.oweeme.com](https://www.oweeme.com)
