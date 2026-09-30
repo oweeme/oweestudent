@@ -8,6 +8,7 @@ import flet as ft
 import app_info
 from database.db import DB_PATH
 from engine import ai, recursos, sync
+from ui.components.logo import logo
 from ui.components.widgets import tarjeta
 
 _RAIZ = Path(__file__).resolve().parents[2]
@@ -206,7 +207,7 @@ def build(st, recargar):
         return lambda _: st.page.launch_url(url)
 
     acerca = tarjeta(
-        f"Acerca de {app_info.NOMBRE} · v{app_info.VERSION}",
+        f"Acerca de {app_info.NOMBRE} · v{app_info.VERSION}", logo(72),
         ft.Text(f"Creado por {app_info.AUTOR}. Gratis y sin anuncios. Si te sirve, puedes apoyar su desarrollo."),
         ft.Row([ft.ElevatedButton("☕ Donar (PayPal)", icon=ft.Icons.FAVORITE, on_click=abrir(app_info.DONACIONES)),
                 ft.OutlinedButton("Sitio web", icon=ft.Icons.PUBLIC, on_click=abrir(app_info.WEB)),

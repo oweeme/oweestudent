@@ -5,25 +5,20 @@ APP="$1"; VER="$2"; OUT="$3"
 ROOT="$(mktemp -d)"; chmod 755 "$ROOT"
 mkdir -p "$ROOT/opt/oweestudent" "$ROOT/usr/bin" "$ROOT/usr/share/applications" "$ROOT/DEBIAN"
 cp -r "$APP/." "$ROOT/opt/oweestudent/"
-cat > "$ROOT/usr/bin/oweestudent" <<'W'
-#!/bin/sh
-# libmpv.so.1 puede faltar en distros nuevas: se usa libmpv.so.2 mediante un enlace en el directorio del usuario
-L="${XDG_DATA_HOME:-$HOME/.local/share}/oweestudent/lib"
-if ! ldconfig -p 2>/dev/null | grep -q "libmpv.so.1"; then
-  M="$(ldconfig -p 2>/dev/null | awk '/libmpv.so.2/{print $NF; exit}')"
-  [ -n "$M" ] && mkdir -p "$L" && ln -sf "$M" "$L/libmpv.so.1" && export LD_LIBRARY_PATH="$L${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
-fi
-exec /opt/oweestudent/OweeStudent "$@"
-W
-chmod 755 "$ROOT/usr/bin/oweestudent"
+install -m 755 "$(dirname "$0")/launcher.sh" "$ROOT/usr/bin/oweestudent"
+mkdir -p "$ROOT/usr/share/icons/hicolor/256x256/apps" "$ROOT/usr/share/icons/hicolor/512x512/apps"
+cp "$(dirname "$0")/../../assets/icon_256.png" "$ROOT/usr/share/icons/hicolor/256x256/apps/oweestudent.png"
+cp "$(dirname "$0")/../../assets/icon_512.png" "$ROOT/usr/share/icons/hicolor/512x512/apps/oweestudent.png"
 cat > "$ROOT/usr/share/applications/oweestudent.desktop" <<'D'
 [Desktop Entry]
 Type=Application
 Name=OweeStudent
 Comment=Plan de estudios, repaso espaciado e IA local
 Exec=/usr/bin/oweestudent
+Icon=oweestudent
 Terminal=false
 Categories=Education;
+StartupWMClass=OweeStudent
 D
 cat > "$ROOT/DEBIAN/control" <<C
 Package: oweestudent
@@ -31,8 +26,8 @@ Version: $VER
 Section: education
 Priority: optional
 Architecture: amd64
-Depends: libmpv2 | libmpv1, libgtk-3-0
-Recommends: zenity
+Depends: libmpv2 | libmpv1 | libmpv-dev, libgtk-3-0, libgstreamer1.0-0, libgstreamer-plugins-base1.0-0
+Recommends: zenity, libjpeg62-turbo | libjpeg-turbo8
 Maintainer: Hector Martinez <hector@oweeme.com>
 Homepage: https://www.oweeme.com
 Description: Plan de estudios, repaso espaciado (FSRS) e IA local

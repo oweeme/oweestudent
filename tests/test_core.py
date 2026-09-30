@@ -208,3 +208,13 @@ def test_datos_del_proyecto():
     assert app_info.AUTOR == "Hector Martinez" and app_info.EMAIL == "hector@oweeme.com"
     assert app_info.DONACIONES.startswith("https://www.paypal.com/paypalme/")
     assert app_info.WEB.startswith("https://www.oweeme.com")
+
+
+def test_entorno_empaquetado_restaura_ld_library_path():
+    from engine.entorno import restaurar_librerias
+    env = {"LD_LIBRARY_PATH": "/opt/app/_internal:/mi/lib", "LD_LIBRARY_PATH_ORIG": "/mi/lib"}
+    assert restaurar_librerias(env, empaquetado=True) and env["LD_LIBRARY_PATH"] == "/mi/lib"
+    env = {"LD_LIBRARY_PATH": "/opt/app/_internal", "LD_LIBRARY_PATH_ORIG": ""}
+    assert restaurar_librerias(env, empaquetado=True) and "LD_LIBRARY_PATH" not in env
+    env = {"LD_LIBRARY_PATH": "/x"}
+    assert not restaurar_librerias(env, empaquetado=False) and env["LD_LIBRARY_PATH"] == "/x"  # desarrollo: no toca
