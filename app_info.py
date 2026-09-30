@@ -1,0 +1,7 @@
+"""Datos del proyecto (fuente única para la app, los instaladores y el README)."""
+NOMBRE = "OweeStudent"
+VERSION = "0.1.0"
+AUTOR = "Hector Martinez"
+WEB = "https://www.oweeme.com"
+EMAIL = "hector@oweeme.com"
+DONACIONES = "https://www.paypal.com/paypalme/oweeandme"

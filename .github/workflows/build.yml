@@ -31,7 +31,7 @@ jobs:
       - uses: actions/setup-python@v5
         with: { python-version: "${{ env.PYTHON_VERSION }}" }
       - name: Versión
-        run: echo "VERSION=$(if [[ '${{ github.ref_type }}' == 'tag' ]]; then echo '${{ github.ref_name }}' | sed 's/^v//'; else cat VERSION; fi)" >> $GITHUB_ENV
+        run: echo "VERSION=$(if [[ '${{ github.ref_type }}' == 'tag' ]]; then echo '${{ github.ref_name }}' | sed 's/^v//'; else python3 -c 'import app_info;print(app_info.VERSION)'; fi)" >> $GITHUB_ENV
       - run: pip install -r requirements.txt pyinstaller
       - run: flet pack main.py --name OweeStudent -D -y
       - name: Paquete tar.gz con instalador de usuario (sin root)
@@ -58,7 +58,7 @@ jobs:
         with: { python-version: "${{ env.PYTHON_VERSION }}" }
       - name: Versión
         shell: bash
-        run: echo "OWEE_VERSION=$(if [[ '${{ github.ref_type }}' == 'tag' ]]; then echo '${{ github.ref_name }}' | sed 's/^v//'; else cat VERSION; fi)" >> $GITHUB_ENV
+        run: echo "OWEE_VERSION=$(if [[ '${{ github.ref_type }}' == 'tag' ]]; then echo '${{ github.ref_name }}' | sed 's/^v//'; else python3 -c 'import app_info;print(app_info.VERSION)'; fi)" >> $GITHUB_ENV
       - run: pip install -r requirements.txt pyinstaller
       - run: flet pack main.py --name OweeStudent -D -y
       - name: Instalador por usuario (Inno Setup, sin administrador)
@@ -81,7 +81,7 @@ jobs:
       - uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: "17" }
       - name: Versión
-        run: echo "VERSION=$(if [[ '${{ github.ref_type }}' == 'tag' ]]; then echo '${{ github.ref_name }}' | sed 's/^v//'; else cat VERSION; fi)" >> $GITHUB_ENV
+        run: echo "VERSION=$(if [[ '${{ github.ref_type }}' == 'tag' ]]; then echo '${{ github.ref_name }}' | sed 's/^v//'; else python3 -c 'import app_info;print(app_info.VERSION)'; fi)" >> $GITHUB_ENV
       - run: pip install "flet==0.28.3" "flet-cli==0.28.3"
       - run: flet build apk --build-version "$VERSION" -v
       - name: Renombrar

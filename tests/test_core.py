@@ -201,3 +201,10 @@ def test_ia_cadena_y_validacion(monkeypatch, tmp_path):
     monkeypatch.setattr(ai, "_local", falla_primero)
     assert ai._llm("hola", "s", 10) == "ok:remoto"              # cae al otro equipo
     assert len(calls) == 2
+
+
+def test_datos_del_proyecto():
+    import app_info
+    assert app_info.AUTOR == "Hector Martinez" and app_info.EMAIL == "hector@oweeme.com"
+    assert app_info.DONACIONES.startswith("https://www.paypal.com/paypalme/")
+    assert app_info.WEB.startswith("https://www.oweeme.com")
