@@ -9,6 +9,11 @@ Plan de estudios + repaso espaciado (**FSRS**) + IA **local opcional**, para est
 - **Sincroniza entre equipos por QR** (Wi-Fi local): mezcla los cambios de ambos, gana el más reciente.
 - **IA local** (Ollama, LM Studio…) elegida según tu RAM; si tu equipo no puede, usa la IA de otro equipo de tu red. Sin APIs ni suscripciones.
 
+**Autor:** Hector Martinez · [www.oweeme.com](https://www.oweeme.com) · hector@oweeme.com
+
+## ☕ Apoya el proyecto
+OweeStudent es gratis. Si te ayuda a estudiar, puedes colaborar con una donación: **[paypal.me/oweeandme](https://www.paypal.com/paypalme/oweeandme)**. ¡Gracias!
+
 ## Instalar (sin permisos de administrador)
 
 | Sistema | Archivo de [Releases](../../releases) | Cómo |
@@ -43,3 +48,7 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt pytest
 ```
 Linux: si falta `libmpv.so.1`, `ln -s /usr/lib/x86_64-linux-gnu/libmpv.so.2 ~/.local/lib/libmpv.so.1` y `LD_LIBRARY_PATH=~/.local/lib`.
 Publicar: `git tag v0.1.0 && git push --tags` → GitHub Actions compila y adjunta los instaladores a la Release.
+
+
+---
+© 2026 Hector Martinez — [www.oweeme.com](https://www.oweeme.com)

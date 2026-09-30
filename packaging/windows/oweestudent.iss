@@ -3,7 +3,10 @@
 [Setup]
 AppName=OweeStudent
 AppVersion={#MiVersion}
-AppPublisher=OweeStudent
+AppPublisher=Hector Martinez
+AppPublisherURL=https://www.oweeme.com
+AppSupportURL=https://www.oweeme.com
+AppCopyright=© 2026 Hector Martinez
 DefaultDirName={localappdata}\Programs\OweeStudent
 DefaultGroupName=OweeStudent
 PrivilegesRequired=lowest

@@ -5,6 +5,7 @@ from pathlib import Path
 
 import flet as ft
 
+import app_info
 from database.db import DB_PATH
 from engine import ai, recursos, sync
 from ui.components.widgets import tarjeta
@@ -23,11 +24,11 @@ def build(st, recargar):
     # ---------- IA ----------
     cfg = ai.cargar_config()
     url = ft.TextField(label="Servidor local", value=cfg.get("local_url", "http://localhost:11434"))
-    modelo_l = ft.Dropdown(label="Modelo local", value=cfg.get("local_modelo"),
+    modelo_l = ft.Dropdown(label="Modelo local", width=320, value=cfg.get("local_modelo"),
                            options=[ft.dropdown.Option(cfg["local_modelo"])] if cfg.get("local_modelo") else [])
     remoto = ft.TextField(label="IA de otro equipo (opcional, ej. http://192.168.1.50:11434)",
                           value=cfg.get("remoto_url", ""))
-    modelo_r = ft.Dropdown(label="Modelo del otro equipo", value=cfg.get("remoto_modelo"),
+    modelo_r = ft.Dropdown(label="Modelo del otro equipo", width=320, value=cfg.get("remoto_modelo"),
                            options=[ft.dropdown.Option(cfg["remoto_modelo"])] if cfg.get("remoto_modelo") else [])
     def detectar(_):
         try:
@@ -201,6 +202,16 @@ def build(st, recargar):
         st.page.update()
 
     movil = st.page.platform in (ft.PagePlatform.ANDROID, ft.PagePlatform.IOS)
+    def abrir(url):
+        return lambda _: st.page.launch_url(url)
+
+    acerca = tarjeta(
+        f"Acerca de {app_info.NOMBRE} · v{app_info.VERSION}",
+        ft.Text(f"Creado por {app_info.AUTOR}. Gratis y sin anuncios. Si te sirve, puedes apoyar su desarrollo."),
+        ft.Row([ft.ElevatedButton("☕ Donar (PayPal)", icon=ft.Icons.FAVORITE, on_click=abrir(app_info.DONACIONES)),
+                ft.OutlinedButton("Sitio web", icon=ft.Icons.PUBLIC, on_click=abrir(app_info.WEB)),
+                ft.OutlinedButton(app_info.EMAIL, icon=ft.Icons.MAIL, on_click=abrir("mailto:" + app_info.EMAIL))],
+               wrap=True))
     return ft.Column([
         ft.Text("Ajustes", style=ft.TextThemeStyle.HEADLINE_SMALL), aviso, tarj_ia,
         *([] if movil else [tarjeta(
@@ -214,4 +225,5 @@ def build(st, recargar):
                 ft.ElevatedButton("1) Mostrar QR en este equipo", icon=ft.Icons.QR_CODE, on_click=enviar_y_vigilar), zona_qr,
                 ft.Divider(), enlace,
                 ft.ElevatedButton("2) Sincronizar con el equipo del enlace", icon=ft.Icons.SYNC, on_click=recibir)),
+        acerca,
     ], spacing=12, scroll=ft.ScrollMode.AUTO, expand=True)

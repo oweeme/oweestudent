@@ -33,7 +33,8 @@ Priority: optional
 Architecture: amd64
 Depends: libmpv2 | libmpv1, libgtk-3-0
 Recommends: zenity
-Maintainer: OweeStudent
+Maintainer: Hector Martinez <hector@oweeme.com>
+Homepage: https://www.oweeme.com
 Description: Plan de estudios, repaso espaciado (FSRS) e IA local
  Importa planes en MD/TXT/PDF/DOCX/XLSX, genera tarjetas de repaso y sincroniza entre equipos.
 C

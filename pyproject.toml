@@ -3,14 +3,19 @@ name = "oweestudent"
 version = "0.1.0"
 description = "Plan de estudios, repaso espaciado (FSRS) e IA local para estudiantes y autodidactas"
 requires-python = ">=3.10"
+authors = [{ name = "Hector Martinez", email = "hector@oweeme.com" }]
+
+[project.urls]
+Homepage = "https://www.oweeme.com"
+Donate = "https://www.paypal.com/paypalme/oweeandme"
 # Dependencias para `flet build apk` (Android). python-docx no está: necesita lxml, que no se compila en Android.
 dependencies = ["flet>=0.28,<0.70", "pypdf", "openpyxl", "qrcode", "pypng"]
 
 [tool.flet]
 org = "app.oweestudent"
 product = "OweeStudent"
-company = "OweeStudent"
-copyright = "OweeStudent"
+company = "Hector Martinez"
+copyright = "© 2026 Hector Martinez"
 
 [tool.flet.app]
 path = "."
