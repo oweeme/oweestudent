@@ -46,7 +46,8 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt pytest
 .venv/bin/python main.py          # ejecutar
 .venv/bin/python main.py --web    # servir la app por Wi-Fi
 ```
-Linux: si falta `libmpv.so.1`, `ln -s /usr/lib/x86_64-linux-gnu/libmpv.so.2 ~/.local/lib/libmpv.so.1` y `LD_LIBRARY_PATH=~/.local/lib`.
+Linux empaquetado: el lanzador (`packaging/linux/launcher.sh`) enlaza `libmpv.so.2` como `libmpv.so.1` y, si la app no abre, muestra el motivo y lo guarda en `~/.local/share/oweestudent/ultimo-error.log`. En cada compilación se prueba en un Debian 12 limpio (`packaging/linux/smoke.sh`).
+El icono se genera con `tools/gorro.py` (logo de Oweeme + gorro).
 Publicar: `git tag v0.1.0 && git push --tags` → GitHub Actions compila y adjunta los instaladores a la Release.
 
 

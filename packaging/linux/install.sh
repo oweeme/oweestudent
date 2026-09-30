@@ -5,25 +5,17 @@ AQUI="$(cd "$(dirname "$0")" && pwd)"
 DEST="$HOME/.local/opt/oweestudent"
 BIN="$HOME/.local/bin"
 APPS="$HOME/.local/share/applications"
-LIBS="$HOME/.local/lib/oweestudent"
 
-mkdir -p "$DEST" "$BIN" "$APPS" "$LIBS"
+mkdir -p "$DEST" "$BIN" "$APPS"
 rm -rf "$DEST"/*
 cp -r "$AQUI/app/." "$DEST/"
 [ -f "$AQUI/oweestudent.png" ] && cp "$AQUI/oweestudent.png" "$DEST/oweestudent.png" || true
 
-# Flet necesita libmpv.so.1; muchas distribuciones nuevas solo traen libmpv.so.2 (compatible para nuestro uso)
-NEEDS_LIBS=0
-if ! ldconfig -p 2>/dev/null | grep -q "libmpv.so.1"; then
-  MPV2="$(ldconfig -p 2>/dev/null | awk '/libmpv.so.2/{print $NF; exit}')"
-  if [ -n "$MPV2" ]; then ln -sf "$MPV2" "$LIBS/libmpv.so.1"; NEEDS_LIBS=1
-  else echo "Aviso: no encuentro libmpv. Instálala una vez con:  sudo apt install libmpv2   (o el equivalente de tu distro)"; fi
-fi
-
+cp "$AQUI/launcher.sh" "$DEST/launcher.sh" && chmod +x "$DEST/launcher.sh"
 cat > "$BIN/oweestudent" <<WRAP
-#!/usr/bin/env bash
-$( [ "$NEEDS_LIBS" = 1 ] && echo "export LD_LIBRARY_PATH=\"$LIBS\${LD_LIBRARY_PATH:+:\$LD_LIBRARY_PATH}\"" )
-exec "$DEST/OweeStudent" "\$@"
+#!/bin/sh
+export OWEE_APP_DIR="$DEST"
+exec "$DEST/launcher.sh" "\$@"
 WRAP
 chmod +x "$BIN/oweestudent"
 

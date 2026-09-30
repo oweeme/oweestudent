@@ -14,7 +14,7 @@ def build(st, ir_a_plan):
     hay_plan = st.plan_id is not None
     destino = ft.RadioGroup(value="agregar" if hay_plan else "nuevo", content=ft.Column([
         ft.Radio(value="nuevo", label="Crear un plan nuevo"),
-        ft.Radio(value="agregar", label="Agregar al plan activo (ej. sumar Idiomas o IT)", disabled=not hay_plan),
+        ft.Radio(value="agregar", label="Agregar al plan activo", disabled=not hay_plan),
     ]))
     estado = ft.Text("", color=ft.Colors.RED_300)
     picker = ft.FilePicker()

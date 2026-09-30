@@ -15,6 +15,7 @@ OutputBaseFilename=OweeStudent-{#MiVersion}-windows-setup
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
+SetupIconFile=..\..\assets\icon.ico
 DisableProgramGroupPage=yes
 UninstallDisplayName=OweeStudent
 

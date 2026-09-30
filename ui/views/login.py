@@ -3,6 +3,7 @@ import time
 import flet as ft
 
 from database import repo
+from ui.components.logo import logo
 
 
 def build(st, al_entrar):
@@ -33,7 +34,7 @@ def build(st, al_entrar):
 
     clave.on_submit = entrar
     return ft.Column([
-        ft.Text("🎓 OweeStudent", style=ft.TextThemeStyle.HEADLINE_MEDIUM),
+        logo(120), ft.Text("OweeStudent", style=ft.TextThemeStyle.HEADLINE_MEDIUM),
         ft.Text("Inicia sesión para continuar"), sel, clave,
         ft.ElevatedButton("Entrar", icon=ft.Icons.LOGIN, on_click=entrar), error,
     ], spacing=14, horizontal_alignment=ft.CrossAxisAlignment.CENTER)
