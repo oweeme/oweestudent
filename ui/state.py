@@ -10,6 +10,7 @@ class AppState:
         self.conn = init_db()
         self.perfil_id = repo.perfiles(self.conn)[0]["id"]
         self.plan_id = None
+        self.carpeta_destino = None
         self.tema_id = None
         self.tema_titulo = ""
         self.elegir_perfil(self.perfil_id)
@@ -19,6 +20,7 @@ class AppState:
         ps = repo.planes(self.conn, perfil_id)
         self.plan_id = ps[0]["id"] if ps else None
         self.tema_id, self.tema_titulo = None, ""
+        self.carpeta_destino = None
 
     def toast(self, msg):
         import flet as ft

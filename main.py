@@ -2,15 +2,19 @@ import sys
 
 import flet as ft
 
-from engine.entorno import restaurar_librerias
-
 from database import repo
+from engine import ai
+from engine.entorno import restaurar_librerias
 from ui.state import AppState
-from ui.views import ajustes, estudio, hoy, importar, login, plan, planes, repaso, stats
+from ui.views import (ajustes, estudio, hoy, importar, login, material, plan, planes, repaso,
+                      sincronizar, stats)
+
+TEMAS = {"dark": ft.ThemeMode.DARK, "light": ft.ThemeMode.LIGHT, "system": ft.ThemeMode.SYSTEM}
+
 
 def main(page: ft.Page):
     page.title = "OweeStudent"
-    page.theme_mode = ft.ThemeMode.DARK
+    page.theme_mode = TEMAS.get(ai.cargar_config().get("tema", "dark"), ft.ThemeMode.DARK)
     page.padding = 16
     st = AppState(page)
 
@@ -31,23 +35,29 @@ def main(page: ft.Page):
 
     def construir_app():
         cuerpo = ft.Container(expand=True, alignment=ft.alignment.top_left)
-        idx = {"i": 0}
-
-        HOY, PLAN, PLANES, IMPORTAR, ESTUDIAR, REPASO, METRICAS, AJUSTES = range(8)
-        vistas = [
-            ("Hoy", ft.Icons.TODAY, lambda: hoy.build(st, lambda: ir(ESTUDIAR), lambda: ir(HOY))),
-            ("Plan", ft.Icons.SCHOOL, lambda: plan.build(st, lambda: ir(ESTUDIAR), lambda: ir(PLAN))),
-            ("Planes", ft.Icons.FOLDER_COPY, lambda: planes.build(st, lambda: ir(PLANES), mostrar_login)),
-            ("Importar", ft.Icons.UPLOAD_FILE, lambda: importar.build(st, lambda: ir(PLAN))),
-            ("Estudiar", ft.Icons.TIMER, lambda: estudio.build(st)),
-            ("Repaso", ft.Icons.REPLAY, lambda: repaso.build(st)),
-            ("Métricas", ft.Icons.INSERT_CHART, lambda: stats.build(st)),
-            ("Ajustes", ft.Icons.SETTINGS, lambda: ajustes.build(st, lambda: ir(HOY))),
-        ]
-
-        PRINCIPALES = [HOY, PLAN, ESTUDIAR, REPASO]          # barra inferior del móvil (+ «Más»)
-        SECUNDARIAS = [(PLANES, "Planes y perfiles", ft.Icons.FOLDER_COPY), (IMPORTAR, "Importar plan", ft.Icons.UPLOAD_FILE),
-                       (METRICAS, "Métricas", ft.Icons.INSERT_CHART), (AJUSTES, "Ajustes, IA y sincronización", ft.Icons.SETTINGS)]
+        HOY, PLAN, MATERIAL, REPASO, ESTUDIAR, PLANES, IMPORTAR, METRICAS, SINCRONIZAR, AJUSTES = range(10)
+        PRINCIPALES = [HOY, PLAN, MATERIAL, REPASO]      # barra inferior / barra lateral (+ «Más»)
+        SIN_PLAN_OK = (PLANES, IMPORTAR, ESTUDIAR, REPASO, METRICAS, SINCRONIZAR, AJUSTES)
+        SECUNDARIAS = [(ESTUDIAR, "Estudiar (Pomodoro y tarjetas)", ft.Icons.TIMER),
+                       (PLANES, "Carpetas y asignaturas", ft.Icons.FOLDER_COPY),
+                       (IMPORTAR, "Importar plan", ft.Icons.UPLOAD_FILE),
+                       (METRICAS, "Métricas", ft.Icons.INSERT_CHART),
+                       (SINCRONIZAR, "Sincronizar con otro equipo", ft.Icons.SYNC),
+                       (AJUSTES, "Ajustes, IA y apariencia", ft.Icons.SETTINGS)]
+        vistas = {
+            HOY: lambda: hoy.build(st, lambda: ir(ESTUDIAR), lambda: ir(HOY), lambda: ir(REPASO)),
+            PLAN: lambda: plan.build(st, lambda: ir(ESTUDIAR), lambda: ir(PLAN)),
+            MATERIAL: lambda: material.build(st, lambda: ir(MATERIAL)),
+            REPASO: lambda: repaso.build(st),
+            ESTUDIAR: lambda: estudio.build(st),
+            PLANES: lambda: planes.build(st, lambda: ir(PLANES), mostrar_login, lambda: ir(IMPORTAR)),
+            IMPORTAR: lambda: importar.build(st, lambda: ir(PLAN)),
+            METRICAS: lambda: stats.build(st),
+            SINCRONIZAR: lambda: sincronizar.build(st, lambda: ir(SINCRONIZAR)),
+            AJUSTES: lambda: ajustes.build(st, lambda: ir(HOY)),
+        }
+        ETIQ = {HOY: ("Hoy", ft.Icons.TODAY), PLAN: ("Plan", ft.Icons.SCHOOL),
+                MATERIAL: ("Material", ft.Icons.MENU_BOOK), REPASO: ("Repaso", ft.Icons.REPLAY)}
 
         def pantalla_mas():
             return ft.Column([ft.Text("Más", style=ft.TextThemeStyle.HEADLINE_SMALL),
@@ -55,27 +65,34 @@ def main(page: ft.Page):
                                             on_click=lambda _, i=i: ir(i)) for i, t, ic in SECUNDARIAS]],
                              spacing=4, scroll=ft.ScrollMode.AUTO, expand=True)
 
+        def seleccionar(i):
+            k = PRINCIPALES.index(i) if i in PRINCIPALES else len(PRINCIPALES)
+            rail.selected_index = bar.selected_index = k
+
         def ir_mas():
             cuerpo.content = pantalla_mas()
-            bar.selected_index = len(PRINCIPALES)
+            seleccionar(-1)
             page.update()
 
         def ir(i):
-            idx["i"] = i
-            cuerpo.content = vistas[i][2]() if (st.plan_id or i in (PLANES, IMPORTAR, ESTUDIAR, REPASO, METRICAS, AJUSTES)) else ft.Text(
-                "Aún no hay plan. Ve a «Planes» o «Importar».")
-            rail.selected_index = i
-            bar.selected_index = PRINCIPALES.index(i) if i in PRINCIPALES else len(PRINCIPALES)
+            cuerpo.content = vistas[i]() if (st.plan_id or i in SIN_PLAN_OK) else ft.Text(
+                "Aún no hay asignatura. Ve a «Más → Carpetas y asignaturas» o «Importar plan».")
+            seleccionar(i)
             page.update()
 
-        dests_rail = [ft.NavigationRailDestination(icon=v[1], label=v[0]) for v in vistas]
-        dests_bar = [ft.NavigationBarDestination(icon=vistas[i][1], label=vistas[i][0]) for i in PRINCIPALES]
-        dests_bar.append(ft.NavigationBarDestination(icon=ft.Icons.MENU, label="Más"))
-        rail = ft.NavigationRail(selected_index=0, destinations=dests_rail, label_type=ft.NavigationRailLabelType.ALL,
-                                 on_change=lambda e: ir(e.control.selected_index))
-        bar = ft.NavigationBar(selected_index=0, destinations=dests_bar,
-                               on_change=lambda e: ir(PRINCIPALES[e.control.selected_index])
-                               if e.control.selected_index < len(PRINCIPALES) else ir_mas())
+        def al_cambiar(e):
+            k = e.control.selected_index
+            ir(PRINCIPALES[k]) if k < len(PRINCIPALES) else ir_mas()
+
+        rail = ft.NavigationRail(
+            selected_index=0, label_type=ft.NavigationRailLabelType.ALL, on_change=al_cambiar,
+            destinations=[ft.NavigationRailDestination(icon=ETIQ[i][1], label=ETIQ[i][0]) for i in PRINCIPALES]
+            + [ft.NavigationRailDestination(icon=ft.Icons.MENU, label="Más")])
+        bar = ft.NavigationBar(
+            selected_index=0, on_change=al_cambiar,
+            destinations=[ft.NavigationBarDestination(icon=ETIQ[i][1], label=ETIQ[i][0]) for i in PRINCIPALES]
+            + [ft.NavigationBarDestination(icon=ft.Icons.MENU, label="Más")])
+        divisor = ft.VerticalDivider(width=1)
 
         def layout(_=None):
             movil = (page.width or 1000) < 700
@@ -83,12 +100,11 @@ def main(page: ft.Page):
             page.navigation_bar = bar if movil else None
             page.update()
 
-        divisor = ft.VerticalDivider(width=1)
         page.on_resized = layout
         page.add(ft.SafeArea(ft.Row([rail, divisor, cuerpo], expand=True,
                                     vertical_alignment=ft.CrossAxisAlignment.STRETCH), expand=True))
         layout()
-        ir(HOY if st.plan_id else IMPORTAR)
+        ir(HOY) if st.plan_id else ir_mas()
 
     if repo.hay_claves(st.conn):
         mostrar_login()

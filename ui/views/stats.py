@@ -37,4 +37,5 @@ def build(st):
                                        for r in filas]),
         tarjeta("Mayor índice de olvido", *([ft.Text(f"{r['titulo'][:60]} — {r['d']:.1f}/5") for r in olvido]
                                             or [ft.Text("Sin datos aún")])),
-    ], spacing=10, scroll=ft.ScrollMode.AUTO, expand=True)
+    ], spacing=10, scroll=ft.ScrollMode.AUTO, expand=True,
+                     horizontal_alignment=ft.CrossAxisAlignment.STRETCH)

@@ -5,6 +5,7 @@ import json
 import os
 from datetime import date
 
+from database.db import sin_triggers
 from engine import fsrs
 from engine.scheduler import programar_temas
 from parsers.file_parser import extract_text
@@ -13,27 +14,30 @@ from parsers.regex_extractor import extraer_urls
 
 
 def importar_archivo(conn, ruta: str, inicio: date | None = None, perfil_id: int = 1,
-                     plan_id: int | None = None) -> int:
+                     plan_id: int | None = None, carpeta_id: int | None = None) -> int:
     """Lee un archivo (txt/md/pdf/docx/xlsx) y lo guarda. Con plan_id lo AGREGA a ese plan."""
-    return importar_texto(conn, extract_text(ruta), ruta.rsplit("/", 1)[-1], inicio, perfil_id, plan_id)
+    return importar_texto(conn, extract_text(ruta), ruta.rsplit("/", 1)[-1], inicio, perfil_id, plan_id, carpeta_id)
 
 
 def importar_texto(conn, texto: str, nombre: str = "Plan pegado", inicio: date | None = None,
-                   perfil_id: int = 1, plan_id: int | None = None) -> int:
+                   perfil_id: int = 1, plan_id: int | None = None, carpeta_id: int | None = None) -> int:
     """Estructura `texto` y lo guarda como plan nuevo, o lo suma a `plan_id` existente."""
     plan = parse_plan(texto)
     if plan_id is None:
         inicio = inicio or date.today()
         plan_id = conn.execute(
-            "INSERT INTO planes(titulo, archivo, meta, fecha_inicio, perfil_id) VALUES (?,?,?,?,?)",
+            "INSERT INTO planes(titulo, archivo, meta, fecha_inicio, perfil_id, carpeta_id) VALUES (?,?,?,?,?,?)",
             (plan["titulo"] or nombre, nombre, json.dumps(plan["meta"], ensure_ascii=False),
-             inicio.isoformat(), perfil_id)).lastrowid
+             inicio.isoformat(), perfil_id, carpeta_id)).lastrowid
     else:
         row = conn.execute("SELECT fecha_inicio FROM planes WHERE id=?", (plan_id,)).fetchone()
         inicio = inicio or date.fromisoformat(row["fecha_inicio"])
     base = conn.execute("SELECT COALESCE(MAX(orden)+1,0) FROM unidades WHERE plan_id=?", (plan_id,)).fetchone()[0]
 
+    existentes = {r[0].strip().lower() for r in conn.execute("SELECT titulo FROM unidades WHERE plan_id=?", (plan_id,))}
     for orden, u in enumerate(plan["unidades"], start=base):
+        if u["titulo"].strip().lower() in existentes:  # mismo módulo ya importado: no se duplica
+            continue
         uid = conn.execute(
             "INSERT INTO unidades(plan_id,titulo,semestre,tipo,mes_ini,mes_fin,orden) VALUES (?,?,?,?,?,?,?)",
             (plan_id, u["titulo"], u["semestre"], u["tipo"], u["mes_ini"], u["mes_fin"], orden)).lastrowid
@@ -58,6 +62,9 @@ def importar_texto(conn, texto: str, nombre: str = "Plan pegado", inicio: date |
                          (uid, idm["nombre"].split("(")[0].strip(), idm["nombre"], "\n".join(idm["detalles"])))
     for fila in plan["cronograma"]:
         for bloque, act in fila["bloques"].items():
+            if conn.execute("SELECT 1 FROM cronograma WHERE plan_id=? AND dia=? AND bloque=? AND actividad=?",
+                            (plan_id, fila["dia"], bloque, act)).fetchone():
+                continue
             conn.execute("INSERT INTO cronograma(plan_id,dia,bloque,actividad) VALUES (?,?,?,?)",
                          (plan_id, fila["dia"], bloque, act))
     conn.commit()
@@ -82,9 +89,9 @@ def crear_perfil(conn, nombre, nivel="universitario", clave: str | None = None) 
     return cur.lastrowid
 
 
-def crear_plan(conn, titulo, perfil_id=1, inicio=None) -> int:
-    cur = conn.execute("INSERT INTO planes(titulo, fecha_inicio, perfil_id) VALUES (?,?,?)",
-                       (titulo, (inicio or date.today()).isoformat(), perfil_id))
+def crear_plan(conn, titulo, perfil_id=1, inicio=None, carpeta_id=None) -> int:
+    cur = conn.execute("INSERT INTO planes(titulo, fecha_inicio, perfil_id, carpeta_id) VALUES (?,?,?,?)",
+                       (titulo, (inicio or date.today()).isoformat(), perfil_id, carpeta_id))
     conn.commit()
     return cur.lastrowid
 
@@ -324,3 +331,101 @@ def verificar_clave(conn, perfil_id, clave: str) -> bool:
 
 def hay_claves(conn) -> bool:
     return conn.execute("SELECT 1 FROM perfiles WHERE clave_hash IS NOT NULL").fetchone() is not None
+
+
+# ---------- Carpetas (Máster, 3º de secundaria…) que agrupan asignaturas (planes) ----------
+def carpetas(conn, perfil_id):
+    return conn.execute("SELECT * FROM carpetas WHERE perfil_id=? ORDER BY orden, id", (perfil_id,)).fetchall()
+
+
+def crear_carpeta(conn, nombre, perfil_id=1) -> int:
+    orden = conn.execute("SELECT COALESCE(MAX(orden)+1,0) FROM carpetas WHERE perfil_id=?", (perfil_id,)).fetchone()[0]
+    cur = conn.execute("INSERT INTO carpetas(perfil_id,nombre,orden) VALUES (?,?,?)", (perfil_id, nombre.strip(), orden))
+    conn.commit()
+    return cur.lastrowid
+
+
+def renombrar_carpeta(conn, carpeta_id, nombre):
+    conn.execute("UPDATE carpetas SET nombre=? WHERE id=?", (nombre.strip(), carpeta_id))
+    conn.commit()
+
+
+def borrar_carpeta(conn, carpeta_id):
+    """Borra la carpeta con todas sus asignaturas."""
+    conn.execute("DELETE FROM planes WHERE carpeta_id=?", (carpeta_id,))
+    conn.execute("DELETE FROM carpetas WHERE id=?", (carpeta_id,))
+    conn.commit()
+
+
+def mover_plan(conn, plan_id, carpeta_id):
+    conn.execute("UPDATE planes SET carpeta_id=? WHERE id=?", (carpeta_id, plan_id))
+    conn.commit()
+
+
+def planes_de_carpeta(conn, perfil_id, carpeta_id):
+    """carpeta_id None = asignaturas sin carpeta."""
+    if carpeta_id is None:
+        return conn.execute("SELECT * FROM planes WHERE perfil_id=? AND carpeta_id IS NULL ORDER BY id", (perfil_id,)).fetchall()
+    return conn.execute("SELECT * FROM planes WHERE perfil_id=? AND carpeta_id=? ORDER BY id", (perfil_id, carpeta_id)).fetchall()
+
+
+# ---------- Material de estudio ----------
+def material_por_hash(conn, hash_, plan_id=None):
+    if plan_id is None:
+        return conn.execute("SELECT * FROM materiales WHERE hash=? LIMIT 1", (hash_,)).fetchone()
+    return conn.execute("SELECT * FROM materiales WHERE hash=? AND plan_id=?", (hash_, plan_id)).fetchone()
+
+
+def agregar_material(conn, plan_id, titulo, tipo, hash_, nombre_archivo, ruta, tam, unidad_id=None, tema_id=None) -> int:
+    cur = conn.execute("""INSERT INTO materiales(plan_id,unidad_id,tema_id,titulo,tipo,hash,nombre_archivo,ruta,tam)
+                          VALUES (?,?,?,?,?,?,?,?,?)""",
+                       (plan_id, unidad_id, tema_id, titulo, tipo, hash_, nombre_archivo, ruta, tam))
+    conn.commit()
+    return cur.lastrowid
+
+
+def materiales(conn, plan_id):
+    return conn.execute("SELECT * FROM materiales WHERE plan_id=? ORDER BY id", (plan_id,)).fetchall()
+
+
+def vincular_archivo(conn, material_id, ruta):
+    with sin_triggers(conn):   # la ruta es local de este equipo: no es una edición que deba sincronizarse
+        conn.execute("UPDATE materiales SET ruta=? WHERE id=?", (ruta, material_id))
+    conn.commit()
+
+
+def progreso_lectura(conn, material_id, pagina, paginas=None):
+    conn.execute("UPDATE materiales SET pagina_actual=?, paginas=COALESCE(?, paginas) WHERE id=?",
+                 (pagina, paginas, material_id))
+    conn.commit()
+
+
+def borrar_material(conn, material_id):
+    conn.execute("DELETE FROM materiales WHERE id=?", (material_id,))
+    conn.commit()
+
+
+def notas_material(conn, material_id, pagina=None):
+    if pagina is None:
+        return conn.execute("SELECT * FROM notas_material WHERE material_id=? ORDER BY pagina, id", (material_id,)).fetchall()
+    return conn.execute("SELECT * FROM notas_material WHERE material_id=? AND pagina=? ORDER BY id",
+                        (material_id, pagina)).fetchall()
+
+
+def agregar_nota_material(conn, material_id, pagina, texto, tipo="conclusion"):
+    conn.execute("INSERT INTO notas_material(material_id,pagina,tipo,texto) VALUES (?,?,?,?)",
+                 (material_id, pagina, tipo, texto.strip()))
+    conn.commit()
+
+
+def borrar_nota_material(conn, nota_id):
+    conn.execute("DELETE FROM notas_material WHERE id=?", (nota_id,))
+    conn.commit()
+
+
+def tema_para_tarjetas(conn, plan_id, nombre="Vocabulario y tarjetas") -> int:
+    """Devuelve (creándolos si hace falta) un tema contenedor para tarjetas sueltas, p. ej. vocabulario importado."""
+    u = conn.execute("SELECT id FROM unidades WHERE plan_id=? AND titulo=?", (plan_id, nombre)).fetchone()
+    uid = u["id"] if u else agregar_unidad(conn, plan_id, nombre)
+    t = conn.execute("SELECT id FROM temas WHERE unidad_id=? AND titulo=?", (uid, nombre)).fetchone()
+    return t["id"] if t else agregar_tema(conn, uid, nombre)
