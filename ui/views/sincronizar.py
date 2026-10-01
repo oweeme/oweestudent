@@ -7,7 +7,7 @@ import flet as ft
 
 from database import repo
 from database.db import DB_PATH
-from engine import ai, sync
+from engine import ai, enlace, sync
 from ui.components.widgets import dialogo, tarjeta
 
 _RAIZ = Path(__file__).resolve().parents[2]
@@ -68,8 +68,10 @@ def build(st, recargar):
             ft.Text("En el otro equipo: Sincronizar → Buscar equipos → elige este → escribe el PIN.", size=12,
                     text_align=ft.TextAlign.CENTER),
             ft.ExpansionTile(title=ft.Text("Otras formas de conectar (IP / QR)"), controls=[
-                ft.Text(f"IP: {s.url.split('/?')[0].replace('http://', '')}", selectable=True),
-                ft.Image(src_base64=sync.qr_base64(s.url), width=180, height=180)]),
+                ft.Text(f"IP de este equipo: {s.url.split('/?')[0].replace('http://', '')}", selectable=True),
+                ft.Image(src_base64=sync.qr_base64(enlace.crear(sync.ip_local(), sync.PUERTO, s.token)), width=180, height=180),
+                ft.Text("QR con enlace propio: al escanearlo con la cámara del móvil, Android debería abrir OweeStudent "
+                        "y conectar solo (experimental). Si solo ves texto, cópialo en «Conectar por IP».", size=11)]),
             ft.Text("Válido 5 minutos. Mientras tanto, deja esta pantalla abierta.", size=12)]
         zona_pin.visible = True
         st.page.update()
@@ -113,13 +115,34 @@ def build(st, recargar):
                     trailing=ft.Icon(ft.Icons.CHEVRON_RIGHT),
                     on_click=lambda _, h=h: conectar(h["url"], h["nombre"])) for h in hallados]
             else:
-                lista.controls = [ft.Text("No encontré equipos. En el otro equipo abre Sincronizar → «Permitir "
-                                          "sincronización» y vuelve a buscar. Ambos deben estar en el mismo Wi-Fi.")]
+                yo = sync.ip_local()
+                lista.controls = [
+                    ft.Text(f"No encontré equipos en {yo.rsplit('.', 1)[0]}.x (tu IP: {yo}).", weight=ft.FontWeight.BOLD),
+                    ft.Text("1) En el otro equipo abre Sincronizar → «Permitir sincronización».  2) Ambos en el mismo Wi-Fi.  "
+                            "3) Si sigue sin aparecer, su cortafuegos puede estar bloqueando: prueba AL REVÉS (permite aquí y busca "
+                            "desde el otro) o usa «Conectar por IP» → «Probar conexión» para saber el motivo.", size=13)]
             espera.visible = False
             st.page.update()
         threading.Thread(target=hacer, daemon=True).start()
 
-    ip = ft.TextField(label="IP del otro equipo (ej. 192.168.1.50)", width=240)
+    ip = ft.TextField(label="IP del otro equipo, o el enlace del QR", width=300)
+    resultado_diag = ft.Text("", size=13)
+
+    def probar_conexion(_):
+        pegado = enlace.leer(ip.value)
+        host = (pegado[0].replace("http://", "") if pegado else ip.value.strip()).split(":")[0]
+        if not host:
+            resultado_diag.value = "Escribe primero la IP del otro equipo."
+            st.page.update()
+            return
+        resultado_diag.value = "Probando…"
+        st.page.update()
+
+        def hacer():
+            ok, texto = sync.diagnosticar(host)
+            resultado_diag.value, resultado_diag.color = texto, (ft.Colors.GREEN_400 if ok else ft.Colors.RED_300)
+            st.page.update()
+        threading.Thread(target=hacer, daemon=True).start()
     pin_ip = ft.TextField(label="PIN", width=120, max_length=6, keyboard_type=ft.KeyboardType.NUMBER)
 
     def por_ip(_):
@@ -127,7 +150,10 @@ def build(st, recargar):
         if not host:
             msg("Escribe la IP", True)
             return
-        if ":" not in host:
+        pegado = enlace.leer(host)                 # también vale el texto del QR: oweestudent://sync/IP:8765/PIN
+        if pegado:
+            host, pin_ip.value = pegado[0].replace("http://", ""), pegado[1]
+        elif ":" not in host:
             host += f":{sync.PUERTO}"
 
         def hacer():
@@ -169,7 +195,10 @@ def build(st, recargar):
         tarjeta("3 · Buscar equipos cercanos",
                 ft.Row([ft.ElevatedButton("Buscar equipos", icon=ft.Icons.SEARCH, on_click=buscar), espera]), lista,
                 ft.ExpansionTile(title=ft.Text("¿No aparece? Conectar por IP"), controls=[
-                    ft.Row([ip, pin_ip], wrap=True), ft.ElevatedButton("Sincronizar", icon=ft.Icons.SYNC, on_click=por_ip)])),
+                    ft.Row([ip, pin_ip], wrap=True),
+                    ft.Row([ft.OutlinedButton("Probar conexión", icon=ft.Icons.NETWORK_CHECK, on_click=probar_conexion),
+                            ft.ElevatedButton("Sincronizar", icon=ft.Icons.SYNC, on_click=por_ip)], wrap=True),
+                    resultado_diag])),
         *([] if movil else [tarjeta(
             "Usar en el móvil sin instalar nada",
             ft.Text("Mientras este equipo esté encendido, tu móvil o tablet usa la app por Wi-Fi."),

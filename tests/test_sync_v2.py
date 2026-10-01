@@ -153,3 +153,31 @@ def test_la_ruta_local_no_se_pisa_al_mezclar(equipo, monkeypatch):
     fusionar(B, str(equipo / "A.db"))
     fila = B.execute("select ruta, pagina_actual from materiales").fetchone()
     assert fila["ruta"] == "/ruta/de/B.txt" and fila["pagina_actual"] == 9
+
+
+def test_diagnostico_en_palabras_sencillas(equipo):
+    A = init_db(str(equipo / "A.db"))
+    s = sync.Compartir(A)
+    try:
+        ok, txt = sync.diagnosticar(sync.ip_local())
+        assert ok and "Conectado" in txt
+    finally:
+        s.parar()
+    ok, txt = sync.diagnosticar(sync.ip_local())            # cerrado: rechazado, no «cortafuegos»
+    assert not ok and "Permitir sincronización" in txt
+    ok, txt = sync.diagnosticar("203.0.113.9")              # otra red
+    assert not ok and "redes distintas" in txt
+
+
+def test_ip_local_no_es_loopback_si_hay_red():
+    assert sync.ip_local().count(".") == 3
+
+
+def test_enlace_propio_ida_y_vuelta():
+    from engine import enlace
+    e = enlace.crear("192.168.1.76", 8765, "123456")
+    assert e == "oweestudent://sync/192.168.1.76:8765/123456"
+    assert enlace.leer(e) == ("http://192.168.1.76:8765", "123456")
+    assert enlace.leer("/192.168.1.76:8765/123456") == ("http://192.168.1.76:8765", "123456")   # ruta de Flet
+    assert enlace.leer("sync 10.0.0.5 654321") == ("http://10.0.0.5:8765", "654321")
+    assert enlace.leer("http://999.1.1.1:8765/123456") is None and enlace.leer("hola") is None

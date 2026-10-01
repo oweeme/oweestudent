@@ -27,7 +27,7 @@ Section: education
 Priority: optional
 Architecture: amd64
 Depends: libmpv2 | libmpv1 | libmpv-dev, libgtk-3-0, libgstreamer1.0-0, libgstreamer-plugins-base1.0-0
-Recommends: zenity, libjpeg62-turbo | libjpeg-turbo8
+Recommends: zenity, libjpeg62-turbo | libjpeg-turbo8, libgomp1, libssl3 | libssl3t64
 Maintainer: Hector Martinez <hector@oweeme.com>
 Homepage: https://www.oweeme.com
 Description: Plan de estudios, repaso espaciado (FSRS) e IA local

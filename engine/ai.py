@@ -35,8 +35,9 @@ LOCALES = [("Ollama", "http://localhost:11434"), ("LM Studio", "http://localhost
 
 
 def ia_disponible() -> bool:
+    from engine import ia_local
     cfg = cargar_config()
-    return bool((cfg.get("local_url") and cfg.get("local_modelo")) or
+    return ia_local.instalado() or bool((cfg.get("local_url") and cfg.get("local_modelo")) or
                 (cfg.get("remoto_url") and cfg.get("remoto_modelo")))
 
 
@@ -87,8 +88,17 @@ def _local(prompt, system, max_tokens, url, modelo):
 
 def _llm(prompt: str, system: str, max_tokens=4000) -> str:
     """Prueba en orden: IA de este equipo -> IA de otro equipo de la red. Si una falla, pasa a la siguiente."""
+    from engine import ia_local
     cfg = cargar_config()
     intentos = []
+    if ia_local.instalado():   # IA integrada: la más sencilla, va primero
+        def integrada():
+            u = ia_local.asegurar()
+            try:
+                return _local(prompt, system, max_tokens, u, "integrada")
+            finally:
+                ia_local.usado()
+        intentos.append(("IA integrada", integrada))
     if cfg.get("local_url") and cfg.get("local_modelo"):
         intentos.append(("este equipo", lambda: _local(prompt, system, max_tokens, cfg["local_url"], cfg["local_modelo"])))
     if cfg.get("remoto_url") and cfg.get("remoto_modelo"):

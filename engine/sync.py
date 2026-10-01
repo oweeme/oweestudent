@@ -27,14 +27,49 @@ def nombre_equipo() -> str:
 
 
 def ip_local() -> str:
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    """IP de este equipo en la red local. Prueba varios destinos (en algunos Android el primero falla)."""
+    for destino in ("8.8.8.8", "192.168.1.1", "10.0.0.1", "172.16.0.1", "10.255.255.255"):
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        try:
+            s.connect((destino, 1))  # UDP: no envía nada, solo elige la interfaz de red
+            ip = s.getsockname()[0]
+            if ip and not ip.startswith(("127.", "0.")):
+                return ip
+        except OSError:
+            continue
+        finally:
+            s.close()
+    return "127.0.0.1"
+
+
+def diagnosticar(host: str, puerto: int = PUERTO) -> tuple[bool, str]:
+    """Explica en palabras sencillas por qué no se puede conectar a otro equipo."""
+    import errno
+    yo = ip_local()
+    if yo.startswith("127."):
+        return False, "Este equipo no está conectado a ninguna red Wi-Fi/LAN."
+    if host.rsplit(".", 1)[0] != yo.rsplit(".", 1)[0]:
+        return False, (f"Los equipos parecen estar en redes distintas (este: {yo}, el otro: {host}). "
+                       "Conecta ambos al mismo Wi-Fi (ojo con «red de invitados» o datos móviles).")
     try:
-        s.connect(("10.255.255.255", 1))  # no envía nada; solo elige la interfaz LAN
-        return s.getsockname()[0]
-    except OSError:
-        return "127.0.0.1"
-    finally:
-        s.close()
+        with socket.create_connection((host, puerto), timeout=3):
+            pass
+    except socket.timeout:
+        return False, ("El otro equipo no responde (tiempo agotado). Casi siempre es su CORTAFUEGOS bloqueando "
+                       f"conexiones entrantes. En Linux: sudo ufw allow {puerto}/tcp  ·  En Deepin: Centro de control → "
+                       f"Cortafuegos. O prueba al revés: pulsa «Permitir sincronización» en ESTE equipo y busca desde el otro.")
+    except ConnectionRefusedError:
+        return False, "El equipo está encendido pero la sincronización no está abierta: pulsa «Permitir sincronización» allí."
+    except OSError as ex:
+        if ex.errno in (errno.EHOSTUNREACH, errno.ENETUNREACH):
+            return False, "No hay ruta hacia ese equipo: revisa que esté encendido y en el mismo Wi-Fi."
+        return False, f"No se pudo conectar: {ex}"
+    try:
+        with urllib.request.urlopen(f"http://{host}:{puerto}/hola", timeout=3) as r:
+            d = json.loads(r.read())
+        return True, f"✅ Conectado con «{d.get('nombre', host)}». Falta el PIN."
+    except Exception:
+        return False, "Hay algo en ese puerto, pero no es OweeStudent."
 
 
 def qr_base64(texto: str) -> str:

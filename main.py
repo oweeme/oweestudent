@@ -3,7 +3,8 @@ import sys
 import flet as ft
 
 from database import repo
-from engine import ai
+from database.db import DB_PATH
+from engine import ai, enlace, sync
 from engine.entorno import restaurar_librerias
 from ui.state import AppState
 from ui.views import (ajustes, estudio, hoy, importar, login, material, plan, planes, repaso,
@@ -100,11 +101,29 @@ def main(page: ft.Page):
             page.navigation_bar = bar if movil else None
             page.update()
 
+        def abrir_enlace(e=None):
+            """Android abrió la app desde el QR (oweestudent://sync/IP:PUERTO/PIN): conectar y sincronizar."""
+            datos = enlace.leer(page.route or "")
+            if not datos:
+                return
+            ir(SINCRONIZAR)
+            def hacer():
+                try:
+                    r = sync.recibir(st.conn, datos[0], DB_PATH, pin=datos[1])
+                    st.elegir_perfil(st.perfil_id)
+                    st.toast("✅ " + r)
+                except Exception as ex:
+                    st.toast(f"No se pudo sincronizar: {ex}")
+            import threading
+            threading.Thread(target=hacer, daemon=True).start()
+
+        page.on_route_change = abrir_enlace
         page.on_resized = layout
         page.add(ft.SafeArea(ft.Row([rail, divisor, cuerpo], expand=True,
                                     vertical_alignment=ft.CrossAxisAlignment.STRETCH), expand=True))
         layout()
         ir(HOY) if st.plan_id else ir_mas()
+        abrir_enlace()   # si la app se abrió desde un QR
 
     if repo.hay_claves(st.conn):
         mostrar_login()
@@ -115,6 +134,6 @@ def main(page: ft.Page):
 if __name__ == "__main__":
     restaurar_librerias()  # app empaquetada: que el cliente gráfico use las librerías del sistema
     if "--web" in sys.argv:  # sirve la app por Wi-Fi para móvil/tablet
-        ft.app(target=main, view=ft.AppView.WEB_BROWSER, host="0.0.0.0", port=8550)
+        ft.app(target=main, view=None, host="0.0.0.0", port=8550)  # solo servidor: no abre ventana en el PC
     else:
         ft.app(target=main)
