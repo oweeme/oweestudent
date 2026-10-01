@@ -9,7 +9,7 @@ from ui.components.widgets import barra_progreso, dialogo, tarjeta
 DIAS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
 
 
-def build(st, ir_a_estudio, recargar):
+def build(st, ir_a_estudio, recargar, ir_repaso=lambda: None):
     c, hoy = st.conn, date.today()
     dia = DIAS[hoy.weekday()]
     act = [ft.ListTile(dense=True, title=ft.Text(r["actividad"]), subtitle=ft.Text(r["bloque"]),
@@ -46,10 +46,12 @@ def build(st, ir_a_estudio, recargar):
     n_rev = len(repo.tarjetas_pendientes(c, st.perfil_id)) + len(repo.repasos_pendientes(c, st.perfil_id))
     return ft.Column([ft.Text(f"{dia} {hoy.isoformat()}", style=ft.TextThemeStyle.HEADLINE_SMALL),
                       tarjeta("Esta semana", barra_progreso(min(1, hs / meta), f"{hs:.1f} de {meta:g} h ·"),
-                              ft.Text(f"🔁 {n_rev} repasos pendientes hoy" if n_rev else "🔁 Repasos al día ✅")),
+                              ft.TextButton(f"🔁 {n_rev} repasos pendientes hoy → empezar" if n_rev else "🔁 Repasos al día ✅",
+                                            on_click=lambda _: ir_repaso())),
                       tarjeta("Cronograma de hoy", *(act or [ft.Text("Sin cronograma importado")]),
                               ft.TextButton("＋ Añadir al cronograma", on_click=add_crono)),
                       tarjeta("Temas programados / atrasados", *tt,
                               ft.OutlinedButton("Reprogramar atrasados (inteligente)", icon=ft.Icons.AUTO_FIX_HIGH,
                                                 on_click=reprogramar))],
-                     spacing=10, scroll=ft.ScrollMode.AUTO, expand=True)
+                     spacing=10, scroll=ft.ScrollMode.AUTO, expand=True,
+                     horizontal_alignment=ft.CrossAxisAlignment.STRETCH)

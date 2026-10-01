@@ -10,12 +10,18 @@ from pathlib import Path
 
 from database.db import TABLAS_SYNC, init_db
 
-# tabla -> {columna FK: tabla padre}
-FK = {"planes": {"perfil_id": "perfiles"}, "unidades": {"plan_id": "planes"}, "temas": {"unidad_id": "unidades"},
-      "recursos": {"unidad_id": "unidades"}, "entregables": {"unidad_id": "unidades"},
-      "metas_idioma": {"unidad_id": "unidades"}, "cronograma": {"plan_id": "planes"},
-      "sesiones": {"tema_id": "temas"}, "notas": {"tema_id": "temas"}, "tarjetas": {"tema_id": "temas"},
-      "repasos_log": {"tema_id": "temas"}}
+# tabla -> {columna FK: (tabla padre, obligatoria)}. Si un padre opcional no existe aquí, la columna queda NULL.
+FK = {"carpetas": {"perfil_id": ("perfiles", True)},
+      "planes": {"perfil_id": ("perfiles", True), "carpeta_id": ("carpetas", False)},
+      "unidades": {"plan_id": ("planes", True)}, "temas": {"unidad_id": ("unidades", True)},
+      "recursos": {"unidad_id": ("unidades", True)}, "entregables": {"unidad_id": ("unidades", True)},
+      "metas_idioma": {"unidad_id": ("unidades", True)}, "cronograma": {"plan_id": ("planes", True)},
+      "materiales": {"plan_id": ("planes", True), "unidad_id": ("unidades", False), "tema_id": ("temas", False)},
+      "notas_material": {"material_id": ("materiales", True)},
+      "sesiones": {"tema_id": ("temas", False)}, "notas": {"tema_id": ("temas", True)},
+      "tarjetas": {"tema_id": ("temas", True)}, "repasos_log": {"tema_id": ("temas", False)}}
+NO_PISAR = {"perfiles": {"clave_hash", "sal"}, "materiales": {"ruta"}}  # una mezcla nunca cambia la clave de un perfil ni la ruta local de un archivo
+NULL_EN_INSERT = {"materiales": ("ruta",)}  # la ruta del otro equipo no sirve aquí
 INMUTABLES = {"sesiones", "repasos_log"}  # solo se añaden
 
 
@@ -50,15 +56,18 @@ def _fusionar(L, R) -> dict:
             for fila in R.execute(f"SELECT * FROM {tabla}"):
                 valores = {c: fila[c] for c in cols}
                 ok = True
-                for col, padre in fks.items():
+                for col, (padre, obligatorio) in fks.items():
                     rid = fila[col]
                     if rid is None:
                         continue
                     puid = R.execute(f"SELECT uid FROM {padre} WHERE id=?", (rid,)).fetchone()
                     lid = L.execute(f"SELECT id FROM {padre} WHERE uid=?", (puid[0],)).fetchone() if puid else None
                     if lid is None:
-                        ok = False  # el padre no existe aquí (p. ej. fue borrado): se omite el hijo
-                        break
+                        if obligatorio:
+                            ok = False  # el padre no existe aquí (p. ej. fue borrado): se omite el hijo
+                            break
+                        valores[col] = None
+                        continue
                     valores[col] = lid[0]
                 if not ok:
                     continue
@@ -67,12 +76,15 @@ def _fusionar(L, R) -> dict:
                     lap = lapidas_L.get((tabla, fila["uid"]))
                     if lap and lap >= (fila["modificado"] or ""):
                         continue  # aquí se borró después de la última edición remota
+                    for col in NULL_EN_INSERT.get(tabla, ()):
+                        if col in valores:
+                            valores[col] = None
                     ks = list(valores)
                     L.execute(f"INSERT INTO {tabla}({','.join(ks)}) VALUES ({','.join('?' * len(ks))})",
                               [valores[k] for k in ks])
                     st["nuevos"] += 1
                 elif tabla not in INMUTABLES and (fila["modificado"] or "") > (local_fila["modificado"] or ""):
-                    ks = [k for k in valores if k != "uid"]
+                    ks = [k for k in valores if k != "uid" and k not in NO_PISAR.get(tabla, ())]
                     L.execute(f"UPDATE {tabla} SET {','.join(k + '=?' for k in ks)} WHERE id=?",
                               [valores[k] for k in ks] + [local_fila["id"]])
                     st["actualizados"] += 1

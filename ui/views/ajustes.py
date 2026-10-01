@@ -1,18 +1,11 @@
-import subprocess
-import sys
 import threading
-from pathlib import Path
 
 import flet as ft
 
 import app_info
-from database.db import DB_PATH
-from engine import ai, recursos, sync
+from engine import ai, recursos
 from ui.components.logo import logo
 from ui.components.widgets import tarjeta
-
-_RAIZ = Path(__file__).resolve().parents[2]
-_web = {"proc": None}
 
 
 def build(st, recargar):
@@ -24,11 +17,11 @@ def build(st, recargar):
 
     # ---------- IA ----------
     cfg = ai.cargar_config()
-    url = ft.TextField(label="Servidor local", value=cfg.get("local_url", "http://localhost:11434"))
+    url = ft.TextField(label="Servidor local", value=cfg.get("local_url", "http://localhost:11434"), width=280)
     modelo_l = ft.Dropdown(label="Modelo local", width=320, value=cfg.get("local_modelo"),
                            options=[ft.dropdown.Option(cfg["local_modelo"])] if cfg.get("local_modelo") else [])
     remoto = ft.TextField(label="IA de otro equipo (opcional, ej. http://192.168.1.50:11434)",
-                          value=cfg.get("remoto_url", ""))
+                          value=cfg.get("remoto_url", ""), width=280)
     modelo_r = ft.Dropdown(label="Modelo del otro equipo", width=320, value=cfg.get("remoto_modelo"),
                            options=[ft.dropdown.Option(cfg["remoto_modelo"])] if cfg.get("remoto_modelo") else [])
     def detectar(_):
@@ -129,80 +122,25 @@ def build(st, recargar):
         info_ram, pct,
         ft.ElevatedButton("⬇ Instalar IA recomendada para mi RAM", icon=ft.Icons.MEMORY, on_click=instalar_ia),
         barra, estado_pull,
-        ft.Row([url, ft.OutlinedButton("Detectar", on_click=autodetectar)]), modelo_l,
+        ft.Row([url, ft.OutlinedButton("Detectar", on_click=autodetectar)], wrap=True), modelo_l,
         ft.Text("Si este equipo no puede con la IA, usa la de otro (tu PC, por Wi-Fi). Si hay varias, la app "
                 "prueba en orden: este equipo → otro equipo.", size=12),
         ft.Row([remoto, ft.OutlinedButton("Buscar en mi red", on_click=buscar_red)], wrap=True), modelo_r,
-        ft.Row([ft.ElevatedButton("Guardar", on_click=guardar_ia), ft.OutlinedButton("Probar", on_click=probar)]))
+        ft.Row([ft.ElevatedButton("Guardar", on_click=guardar_ia), ft.OutlinedButton("Probar", on_click=probar)], wrap=True))
 
-    # ---------- Enviar por QR ----------
-    zona_qr = ft.Column()
-    compartir = {"s": None}
-
-    def enviar(_):
-        if compartir["s"]:
-            compartir["s"].parar()
-        try:
-            s = compartir["s"] = sync.Compartir(st.conn)
-            zona_qr.controls = [
-                ft.Image(src_base64=sync.qr_base64(s.url), width=220, height=220),
-                ft.Text(s.url, selectable=True, size=12),
-                ft.Text("Válido 5 min. Ambos equipos en la misma Wi-Fi. Ve al otro equipo, «Recibir», y pega este enlace.", size=12)]
-        except Exception as ex:
-            msg(f"No se pudo compartir: {ex}", True)
-            return
+    def cambiar_tema(e):
+        modo = next(iter(e.control.selected))
+        ai.guardar_config(tema=modo)
+        st.page.theme_mode = {"dark": ft.ThemeMode.DARK, "light": ft.ThemeMode.LIGHT, "system": ft.ThemeMode.SYSTEM}[modo]
         st.page.update()
 
-    def esperar_fin():
-        s = compartir["s"]
-        try:
-            r = s.esperar_y_mezclar(st.conn) if s else None
-        except Exception as ex:
-            r = None
-            msg(f"Error al mezclar: {ex}", True)
-        if r is not None:
-            st.elegir_perfil(st.perfil_id)
-            zona_qr.controls = [ft.Text(f"✅ Sincronizado ({r['nuevos']} nuevos, {r['actualizados']} actualizados, "
-                                        f"{r['borrados']} borrados). Vuelve a abrir la vista para ver los cambios.")]
-            st.page.update()
+    apariencia = tarjeta(
+        "Apariencia",
+        ft.SegmentedButton(selected={cfg.get("tema", "dark")}, allow_multiple_selection=False, on_change=cambiar_tema,
+                           segments=[ft.Segment(value="dark", label=ft.Text("Oscuro"), icon=ft.Icon(ft.Icons.DARK_MODE)),
+                                     ft.Segment(value="light", label=ft.Text("Claro"), icon=ft.Icon(ft.Icons.LIGHT_MODE)),
+                                     ft.Segment(value="system", label=ft.Text("Auto"), icon=ft.Icon(ft.Icons.BRIGHTNESS_AUTO))]))
 
-    def enviar_y_vigilar(_):
-        enviar(_)
-        threading.Thread(target=esperar_fin, daemon=True).start()
-
-    # ---------- Recibir ----------
-    enlace = ft.TextField(label="Pega el enlace del otro equipo", hint_text="http://192.168.1.84:8765/?t=...")
-
-    def recibir(_):
-        def hacer():
-            try:
-                r = sync.recibir(st.conn, enlace.value, DB_PATH)
-                st.elegir_perfil(st.perfil_id)
-                msg(r)
-                recargar()
-            except Exception as ex:
-                msg(f"Error al recibir: {ex}", True)
-        threading.Thread(target=hacer, daemon=True).start()
-
-    # ---------- App completa por Wi-Fi ----------
-    zona_web = ft.Column()
-
-    def alternar_web(_):
-        p = _web["proc"]
-        if p and p.poll() is None:
-            p.terminate()
-            _web["proc"] = None
-            zona_web.controls = [ft.Text("Detenido")]
-        else:
-            _web["proc"] = subprocess.Popen([sys.executable, str(_RAIZ / "main.py"), "--web"], cwd=_RAIZ)
-            url = sync.app_por_wifi_url()
-            zona_web.controls = [ft.Image(src_base64=sync.qr_base64(url), width=220, height=220),
-                                 ft.Text(url, selectable=True),
-                                 ft.Text("Escanea con la cámara del móvil/tablet: abre OweeStudent en el navegador "
-                                         "usando ESTA base de datos en vivo.", size=12)]
-        st.page.update()
-
-    movil = st.page.platform in (ft.PagePlatform.ANDROID, ft.PagePlatform.IOS)
     def abrir(url):
         return lambda _: st.page.launch_url(url)
 
@@ -215,16 +153,7 @@ def build(st, recargar):
                wrap=True))
     return ft.Column([
         ft.Text("Ajustes", style=ft.TextThemeStyle.HEADLINE_SMALL), aviso, tarj_ia,
-        *([] if movil else [tarjeta(
-            "Usar en el móvil o tablet (sin instalar nada)",
-            ft.Text("Mientras este equipo esté encendido, tu otro dispositivo usa la app por Wi-Fi."),
-            ft.ElevatedButton("Activar / desactivar", icon=ft.Icons.QR_CODE_2, on_click=alternar_web), zona_web)]),
-        tarjeta("Sincronizar con otro equipo",
-                ft.Text("Estudia en cualquiera y sincroniza: se mezclan los cambios de los dos (gana el más reciente "
-                        "en cada elemento) y ambos quedan iguales. Un equipo nuevo recibe una copia completa. "
-                        "Se guarda un respaldo antes de mezclar."),
-                ft.ElevatedButton("1) Mostrar QR en este equipo", icon=ft.Icons.QR_CODE, on_click=enviar_y_vigilar), zona_qr,
-                ft.Divider(), enlace,
-                ft.ElevatedButton("2) Sincronizar con el equipo del enlace", icon=ft.Icons.SYNC, on_click=recibir)),
+        apariencia,
         acerca,
-    ], spacing=12, scroll=ft.ScrollMode.AUTO, expand=True)
+    ], spacing=12, scroll=ft.ScrollMode.AUTO, expand=True,
+        horizontal_alignment=ft.CrossAxisAlignment.STRETCH)

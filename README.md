@@ -2,11 +2,14 @@
 
 Plan de estudios + repaso espaciado (**FSRS**) + IA **local opcional**, para estudiantes y autodidactas.
 
+- **Carpetas y asignaturas**: «Máster» → Management, Idiomas…; «3º de secundaria» → Matemática, Ciencias, Historia.
 - Importa planes en **MD, TXT, PDF, DOCX, XLSX** (o pega texto): detecta módulos, temas, libros, enlaces, entregables e idiomas.
+- **Material de estudio**: adjunta PDF/Word/Excel/CSV sin duplicar (por huella), léelo dentro de la app, guarda conclusiones, crea tarjetas de cada página e importa vocabulario desde Excel (ideal para alemán/chino).
+- Modo **claro / oscuro / automático**.
 - **Tarjetas de repaso** hechas de *tus* apuntes (con o sin IA) y repaso con FSRS.
 - Pomodoro, metas semanales, racha, retención y proyección de fin.
 - **Perfiles con clave** opcional (varios usuarios: tú, un familiar…).
-- **Sincroniza entre equipos por QR** (Wi-Fi local): mezcla los cambios de ambos, gana el más reciente.
+- **Sincroniza entre equipos** (Wi-Fi local): el otro equipo aparece por su nombre, confirmas con un PIN de 6 dígitos (sin IP ni escaneo; también hay QR e IP manual). Mezcla los cambios de ambos y transfiere tus archivos de material. Puedes compartir **solo una carpeta**.
 - **IA local** (Ollama, LM Studio…) elegida según tu RAM; si tu equipo no puede, usa la IA de otro equipo de tu red. Sin APIs ni suscripciones.
 
 **Autor:** Hector Martinez · [www.oweeme.com](https://www.oweeme.com) · hector@oweeme.com
@@ -32,10 +35,12 @@ Usa por defecto el 10 % de tu RAM (ajustable): 4 GB → `qwen2.5:0.5b`, 16 GB �
 ## Datos y privacidad
 - Tus datos viven en `~/.oweestudent/estudios.db` (Windows: `%USERPROFILE%\.oweestudent`). No sale nada de tu equipo.
 - La clave de perfil protege la app, **no cifra el archivo**: para eso cifra el disco del sistema.
-- La sincronización usa HTTP en tu red local con una clave de un solo uso (5 min). Úsala en tu red de casa, no en Wi-Fi público.
+- La sincronización usa HTTP en tu red local con un PIN de un solo uso (5 min, se cierra tras 5 intentos fallidos). Úsala en tu red de casa, no en Wi-Fi público. Al compartir una carpeta no viajan tus claves ni el resto de tu estudio.
 
 ## Limitaciones conocidas
-- **Android es experimental:** Android bloquea por defecto las conexiones HTTP sin cifrar, así que la sincronización y la IA por red pueden no funcionar en el APK; alternativa: en el PC, Ajustes → «Usar en el móvil» y abre la app en el navegador del móvil.
+- **Android es experimental:** la sincronización y la IA por red usan sockets de Python y deberían funcionar, pero falta confirmarlo en más dispositivos. Alternativa: en el PC, Sincronizar → «Usar en el móvil sin instalar nada» y abre la app en el navegador del móvil.
+- Escanear el QR con la cámara *dentro* de la app no está disponible (Flet 0.28 no incluye lector); se sustituye por buscar equipos por nombre + PIN.
+- Los archivos de material viajan del equipo que comparte al que recibe; un archivo que solo tiene el equipo que recibe no se envía de vuelta.
 - DOCX no está disponible en Android.
 - La mezcla usa la hora de cada equipo: si los relojes difieren mucho, «el más reciente» puede fallar.
 

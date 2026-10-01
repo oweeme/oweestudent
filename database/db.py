@@ -1,6 +1,7 @@
 """SQLite: plan de estudios, recursos, entregables, sesiones y repaso espaciado."""
 import os
 import sqlite3
+from contextlib import contextmanager
 from pathlib import Path
 
 # Para sincronizar con Syncthing, apunta OWEE_DB a una carpeta sincronizada.
@@ -13,8 +14,38 @@ CREATE TABLE IF NOT EXISTS perfiles (
     nombre TEXT NOT NULL,
     nivel TEXT DEFAULT 'universitario'
 );
+CREATE TABLE IF NOT EXISTS carpetas (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    perfil_id INTEGER DEFAULT 1,
+    nombre TEXT NOT NULL,
+    orden INTEGER DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS materiales (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    plan_id INTEGER REFERENCES planes(id) ON DELETE CASCADE,
+    unidad_id INTEGER REFERENCES unidades(id) ON DELETE SET NULL,
+    tema_id INTEGER REFERENCES temas(id) ON DELETE SET NULL,
+    titulo TEXT NOT NULL,
+    tipo TEXT,
+    hash TEXT,
+    nombre_archivo TEXT,
+    ruta TEXT,
+    tam INTEGER DEFAULT 0,
+    pagina_actual INTEGER DEFAULT 1,
+    paginas INTEGER DEFAULT 0,
+    creado DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS notas_material (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    material_id INTEGER REFERENCES materiales(id) ON DELETE CASCADE,
+    pagina INTEGER DEFAULT 1,
+    tipo TEXT DEFAULT 'conclusion',
+    texto TEXT NOT NULL,
+    creado DATETIME DEFAULT CURRENT_TIMESTAMP
+);
 CREATE TABLE IF NOT EXISTS planes (
     perfil_id INTEGER DEFAULT 1,
+    carpeta_id INTEGER,
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     titulo TEXT NOT NULL,
     archivo TEXT,
@@ -107,10 +138,20 @@ CREATE TABLE IF NOT EXISTS notas (
 
 
 # Tablas que se sincronizan entre equipos (la mezcla usa uid + fecha de modificación)
-TABLAS_SYNC = ["perfiles", "planes", "unidades", "temas", "recursos", "entregables", "metas_idioma",
-               "cronograma", "sesiones", "notas", "tarjetas", "repasos_log"]
+TABLAS_SYNC = ["perfiles", "carpetas", "planes", "unidades", "temas", "recursos", "entregables", "metas_idioma",
+               "cronograma", "materiales", "notas_material", "sesiones", "notas", "tarjetas", "repasos_log"]
 _AHORA = "strftime('%Y-%m-%dT%H:%M:%f','now')"
 _LEGADO = "2000-01-01T00:00:00.000"  # filas anteriores a la sincronización: cualquier edición real las supera
+
+
+@contextmanager
+def sin_triggers(conn):
+    """Para cambios locales que no deben contar como edición sincronizable (p. ej. la ruta de un archivo)."""
+    conn.execute("UPDATE _sync SET activo=1")
+    try:
+        yield
+    finally:
+        conn.execute("UPDATE _sync SET activo=0")
 
 
 def migrar_sync(conn):
@@ -157,6 +198,8 @@ def init_db(db_path: str = DB_PATH) -> sqlite3.Connection:
     for col in ("clave_hash", "sal"):
         if col not in cols:
             conn.execute(f"ALTER TABLE perfiles ADD COLUMN {col} TEXT")
+    if "carpeta_id" not in [r["name"] for r in conn.execute("PRAGMA table_info(planes)")]:
+        conn.execute("ALTER TABLE planes ADD COLUMN carpeta_id INTEGER")
     for tabla in ("tarjetas", "notas"):  # estado FSRS
         cols = [r["name"] for r in conn.execute(f"PRAGMA table_info({tabla})")]
         for col, tipo in (("estabilidad", "REAL"), ("dificultad_fsrs", "REAL"), ("ultimo_repaso", "DATE")):
@@ -165,5 +208,8 @@ def init_db(db_path: str = DB_PATH) -> sqlite3.Connection:
     if not conn.execute("SELECT 1 FROM perfiles").fetchone():
         conn.execute("INSERT INTO perfiles(id, nombre) VALUES (1, 'Yo')")
     migrar_sync(conn)
+    # cronograma duplicado por importar dos veces el mismo plan: se conserva la primera fila de cada grupo
+    conn.execute("""DELETE FROM cronograma WHERE id NOT IN
+                    (SELECT MIN(id) FROM cronograma GROUP BY plan_id, dia, bloque, actividad)""")
     conn.commit()
     return conn

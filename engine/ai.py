@@ -180,6 +180,12 @@ def tarjetas_desde_material(tema: str, material: str, n: int = 5) -> list[tuple[
     return pares
 
 
+def resumir_pagina(texto: str) -> str:
+    """Resumen en viñetas usando SOLO el texto dado (para leer más rápido; revisa siempre con la fuente)."""
+    return _llm(f"TEXTO:\n{texto[:3500]}\n\nResume en 4 a 6 viñetas cortas solo con lo que dice el texto. Sin añadir datos.",
+                "Eres un asistente de estudio. Responde en español, con viñetas.", 350)
+
+
 def preguntas_repaso(tema: str, resumen: str = "") -> str:
     """Genera preguntas para que TÚ compruebes lo que sabes. No juzga si tu resumen es correcto
     (un modelo pequeño se equivoca al verificar hechos)."""

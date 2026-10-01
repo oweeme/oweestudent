@@ -12,6 +12,10 @@ from parsers.file_parser import EXTENSIONES
 def build(st, ir_a_plan):
     inicio = ft.TextField(label="Fecha de inicio (AAAA-MM-DD)", value=date.today().isoformat(), width=250)
     hay_plan = st.plan_id is not None
+    carpeta = ft.Dropdown(label="Guardar en la carpeta", width=320,
+                          value=str(st.carpeta_destino) if st.carpeta_destino else "ninguna",
+                          options=[ft.dropdown.Option("ninguna", "(Sin carpeta)")] + [
+                              ft.dropdown.Option(str(k["id"]), k["nombre"]) for k in repo.carpetas(st.conn, st.perfil_id)])
     destino = ft.RadioGroup(value="agregar" if hay_plan else "nuevo", content=ft.Column([
         ft.Radio(value="nuevo", label="Crear un plan nuevo"),
         ft.Radio(value="agregar", label="Agregar al plan activo", disabled=not hay_plan),
@@ -32,9 +36,12 @@ def build(st, ir_a_plan):
         st.toast("Importado")
         ir_a_plan()
 
+    def _carpeta():
+        return None if carpeta.value in (None, "", "ninguna") else int(carpeta.value)
+
     def desde_ruta(path):
         path = path.strip().strip("'\"")
-        guardar(lambda f, pid: repo.importar_archivo(st.conn, path, f, st.perfil_id, pid))
+        guardar(lambda f, pid: repo.importar_archivo(st.conn, path, f, st.perfil_id, pid, _carpeta()))
 
     ruta = ft.TextField(label="…o pega la ruta del archivo", expand=True)
     pegado = ft.TextField(label="…o pega aquí el texto (Markdown: temas, tablas de cronograma, etc.)",
@@ -93,13 +100,13 @@ def build(st, ir_a_plan):
                                "«Importar texto pegado». Funciona con tu suscripción normal, sin API.", size=12)])]),
         ft.Text("Acepta " + ", ".join(EXTENSIONES).upper() + " o texto pegado. Detecta módulos, temas, "
                 "bibliografía, enlaces, entregables, idiomas y cronograma semanal."),
-        destino, inicio,
+        destino, carpeta, inicio,
         ft.ElevatedButton("Elegir archivo", icon=ft.Icons.UPLOAD_FILE,
                           on_click=lambda _: picker.pick_files(allowed_extensions=EXTENSIONES)),
         ft.Row([ruta, ft.ElevatedButton("Importar", on_click=lambda _: desde_ruta(ruta.value))]),
         pegado,
         ft.ElevatedButton("Importar texto pegado", icon=ft.Icons.CONTENT_PASTE,
                           on_click=lambda _: guardar(lambda f, pid: repo.importar_texto(
-                              st.conn, pegado.value, "Plan pegado", f, st.perfil_id, pid))),
+                              st.conn, pegado.value, "Plan pegado", f, st.perfil_id, pid, _carpeta()))),
         estado,
     ], spacing=12, scroll=ft.ScrollMode.AUTO, expand=True)

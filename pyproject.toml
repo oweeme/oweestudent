@@ -1,6 +1,6 @@
 [project]
 name = "oweestudent"
-version = "0.1.1"
+version = "0.2.0"
 description = "Plan de estudios, repaso espaciado (FSRS) e IA local para estudiantes y autodidactas"
 requires-python = ">=3.10"
 license = { text = "MIT" }
