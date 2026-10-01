@@ -3,7 +3,7 @@ import threading
 import flet as ft
 
 import app_info
-from engine import ai, recursos
+from engine import ai, ia_local, recursos
 from ui.components.logo import logo
 from ui.components.widgets import tarjeta
 
@@ -115,18 +115,86 @@ def build(st, recargar):
             st.page.update()
         threading.Thread(target=hacer, daemon=True).start()
 
+    # ---------- IA integrada (la opción simple) ----------
+    plataforma_ok = ia_local.disponible_en_plataforma()
+    estado_int = ft.Text("", size=14)
+    plan_int = ft.Text("", size=13)
+    barra_int = ft.ProgressBar(value=0, visible=False)
+    texto_int = ft.Text("", size=12)
+    btn_instalar = ft.ElevatedButton("⬇ Instalar IA (descarga única)", icon=ft.Icons.AUTO_AWESOME)
+    btn_quitar = ft.OutlinedButton("Desinstalar", icon=ft.Icons.DELETE_OUTLINE)
+
+    def refrescar_int():
+        e = ia_local.estado()
+        clave = e["modelo"] or ia_local.clave_modelo_para(total, pct.value)
+        mb = ia_local.MODELOS[clave][2]
+        if e["instalado"]:
+            estado_int.value = f"✅ IA instalada (modelo {clave.upper()}). Se enciende sola al usarla y se apaga después para no gastar RAM."
+        elif plataforma_ok:
+            estado_int.value = "La IA integrada todavía no está instalada."
+        else:
+            estado_int.value = ("Este dispositivo no puede ejecutar la IA por sí solo. Usa la IA de tu PC: abre "
+                                "«Opciones avanzadas» → «Buscar en mi red».")
+        plan_int.value = (f"Se instalará el modelo {clave.upper()} (~{mb / 1024:.1f} GB) y un motor de ~20 MB, "
+                          f"elegido por tu RAM ({total:.0f} GB, usando hasta el {pct.value:.0f}%). "
+                          "Se descarga una sola vez y puede continuar si se corta.") if plataforma_ok and not e["instalado"] else ""
+        btn_instalar.visible = plataforma_ok and not e["instalado"]
+        btn_quitar.visible = e["instalado"]
+
+    def instalar_int(_):
+        clave = ia_local.clave_modelo_para(total, pct.value)
+        btn_instalar.disabled = True
+        barra_int.visible, barra_int.value = True, 0
+        st.page.update()
+
+        def prog(f, t):
+            barra_int.value, texto_int.value = f, f"{t}  ({f:.0%})"
+            st.page.update()
+
+        def hacer():
+            try:
+                ia_local.instalar(clave, prog)
+                ai.guardar_config(ram_pct=pct.value)
+                msg("✅ IA instalada. Ya puedes usar «Generar plan con IA» y las tarjetas con IA.")
+            except Exception as ex:
+                msg(f"No se pudo instalar: {ex}", True)
+            barra_int.visible = False
+            btn_instalar.disabled = False
+            refrescar_int()
+            st.page.update()
+        threading.Thread(target=hacer, daemon=True).start()
+
+    def quitar_int(_):
+        ia_local.desinstalar()
+        msg("IA desinstalada")
+        refrescar_int()
+        st.page.update()
+
+    btn_instalar.on_click = instalar_int
+    btn_quitar.on_click = quitar_int
+    refrescar_int()
+    pct.on_change = lambda e: (actualizar_reco(), refrescar_int(), st.page.update())
+
+    avanzadas = ft.ExpansionTile(title=ft.Text("Opciones avanzadas (Ollama / IA de otro equipo)"), controls=[
+        ft.Column([
+            info_ram,
+            ft.ElevatedButton("⬇ Instalar con Ollama (ya instalado)", icon=ft.Icons.MEMORY, on_click=instalar_ia),
+            barra, estado_pull,
+            ft.Row([url, ft.OutlinedButton("Detectar", on_click=autodetectar)], wrap=True), modelo_l,
+            ft.Text("Si este equipo no puede con la IA, usa la de otro (tu PC, por Wi-Fi). Si hay varias, la app "
+                    "prueba en orden: integrada → Ollama de este equipo → otro equipo.", size=12),
+            ft.Row([remoto, ft.OutlinedButton("Buscar en mi red", on_click=buscar_red)], wrap=True), modelo_r,
+            ft.Row([ft.ElevatedButton("Guardar", on_click=guardar_ia), ft.OutlinedButton("Probar", on_click=probar)],
+                   wrap=True)], spacing=10)])
+
     tarj_ia = tarjeta(
         "Inteligencia artificial (opcional)",
-        ft.Text("Sin IA la app ya reprograma atrasados y proyecta tu fin. Con IA añade: generar un plan desde un "
-                "objetivo (Importar) y evaluar tus resúmenes (Estudiar). En modo local nada sale de tu equipo."),
-        info_ram, pct,
-        ft.ElevatedButton("⬇ Instalar IA recomendada para mi RAM", icon=ft.Icons.MEMORY, on_click=instalar_ia),
-        barra, estado_pull,
-        ft.Row([url, ft.OutlinedButton("Detectar", on_click=autodetectar)], wrap=True), modelo_l,
-        ft.Text("Si este equipo no puede con la IA, usa la de otro (tu PC, por Wi-Fi). Si hay varias, la app "
-                "prueba en orden: este equipo → otro equipo.", size=12),
-        ft.Row([remoto, ft.OutlinedButton("Buscar en mi red", on_click=buscar_red)], wrap=True), modelo_r,
-        ft.Row([ft.ElevatedButton("Guardar", on_click=guardar_ia), ft.OutlinedButton("Probar", on_click=probar)], wrap=True))
+        ft.Text("Sin IA la app ya reprograma atrasados, crea tarjetas de tus apuntes y proyecta tu fin. Con IA añade: "
+                "generar un plan desde un objetivo y tarjetas/resúmenes del material. Todo ocurre en tu equipo: "
+                "nada sale de él.", size=13),
+        estado_int, plan_int, pct,
+        ft.Row([btn_instalar, btn_quitar], wrap=True), barra_int, texto_int,
+        ft.OutlinedButton("Probar la IA", icon=ft.Icons.PLAY_ARROW, on_click=probar), avanzadas)
 
     def cambiar_tema(e):
         modo = next(iter(e.control.selected))

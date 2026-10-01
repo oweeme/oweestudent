@@ -34,4 +34,5 @@ command -v update-desktop-database >/dev/null && update-desktop-database "$APPS"
 echo "✅ Instalado en $DEST"
 echo "   Ábrelo desde el menú de aplicaciones o con:  oweestudent"
 case ":$PATH:" in *":$BIN:"*) ;; *) echo "   (Añade $BIN a tu PATH para usar el comando 'oweestudent')";; esac
+for l in libgomp.so.1 libssl.so.3; do ls /usr/lib/x86_64-linux-gnu/$l /usr/lib64/$l >/dev/null 2>&1 || echo "   Consejo: para la IA integrada instala libgomp1 y libssl3 (sudo apt install libgomp1 libssl3)"; done | sort -u
 command -v zenity >/dev/null || echo "   Consejo: instala 'zenity' para el selector de archivos (sudo apt install zenity)"

@@ -88,7 +88,7 @@ jobs:
       - name: Versión
         run: echo "VERSION=$(if [[ '${{ github.ref_type }}' == 'tag' ]]; then echo '${{ github.ref_name }}' | sed 's/^v//'; else python3 -c 'import app_info;print(app_info.VERSION)'; fi)" >> $GITHUB_ENV
       - run: pip install "flet==0.28.3" "flet-cli==0.28.3"
-      - run: flet build apk --build-version "$VERSION" --android-adaptive-icon-background "#217867" --splash-color "#217867" --splash-dark-color "#217867" -v
+      - run: flet build apk --build-version "$VERSION" --android-adaptive-icon-background "#217867" --splash-color "#217867" --splash-dark-color "#217867" --deep-linking-scheme oweestudent --deep-linking-host sync -v
       - name: Renombrar
         run: cp build/apk/*.apk "OweeStudent-${VERSION}-android.apk"
       - uses: actions/upload-artifact@v4

@@ -28,9 +28,13 @@ OweeStudent es gratis. Si te ayuda a estudiar, puedes colaborar con una donació
 
 macOS e iOS: aún no se publican (requieren compilar en un Mac y cuenta de Apple Developer).
 
-## IA local (opcional)
-Instala [Ollama](https://ollama.com/download), abre la app → **Ajustes → «Instalar IA recomendada para mi RAM»**.
-Usa por defecto el 10 % de tu RAM (ajustable): 4 GB → `qwen2.5:0.5b`, 16 GB → `1.5b`, 32 GB → `3b`.
+## IA integrada (opcional, sin instalar nada aparte)
+**Ajustes → «Instalar IA»**: la app descarga sola un motor ligero (~20 MB, `llama.cpp`) y un modelo pequeño, elegido según tu RAM
+(usa hasta el 10 %, ajustable): 4 GB → Qwen 0,5B (~0,5 GB), 16 GB → 1,5B (~1,1 GB), 32 GB → 3B (~2,1 GB).
+Se descarga una sola vez (se reanuda si se corta), se enciende sola al usarla y se apaga a los 2 minutos para liberar RAM.
+No existe en Android/iOS (no permiten ejecutar programas descargados): allí se usa la IA de tu PC (*Opciones avanzadas → Buscar en mi red*, requiere Ollama en el PC con `OLLAMA_HOST=0.0.0.0`).
+En Linux necesita `libgomp1` y `libssl3` (casi siempre ya instaladas; si faltan, la app te dice el comando exacto).
+Alternativa para quien ya lo tiene: Ollama o LM Studio (*Opciones avanzadas*).
 
 ## Datos y privacidad
 - Tus datos viven en `~/.oweestudent/estudios.db` (Windows: `%USERPROFILE%\.oweestudent`). No sale nada de tu equipo.
@@ -39,7 +43,8 @@ Usa por defecto el 10 % de tu RAM (ajustable): 4 GB → `qwen2.5:0.5b`, 16 GB �
 
 ## Limitaciones conocidas
 - **Android es experimental:** la sincronización y la IA por red usan sockets de Python y deberían funcionar, pero falta confirmarlo en más dispositivos. Alternativa: en el PC, Sincronizar → «Usar en el móvil sin instalar nada» y abre la app en el navegador del móvil.
-- Escanear el QR con la cámara *dentro* de la app no está disponible (Flet 0.28 no incluye lector); se sustituye por buscar equipos por nombre + PIN.
+- Escanear el QR con la cámara *dentro* de la app no está disponible (Flet 0.28 no incluye lector); se sustituye por buscar equipos por nombre + PIN. El QR lleva un enlace propio (`oweestudent://sync/…`) que, si Android lo abre desde la cámara, conecta solo: **experimental, sin confirmar en dispositivos reales**.
+- Si el móvil no encuentra al PC: casi siempre es el **cortafuegos del PC** bloqueando conexiones entrantes (Deepin/ufw: `sudo ufw allow 8765/tcp`). Prueba al revés (permitir en el móvil, buscar desde el PC) o usa «Conectar por IP» → «Probar conexión», que explica el motivo.
 - Los archivos de material viajan del equipo que comparte al que recibe; un archivo que solo tiene el equipo que recibe no se envía de vuelta.
 - DOCX no está disponible en Android.
 - La mezcla usa la hora de cada equipo: si los relojes difieren mucho, «el más reciente» puede fallar.
