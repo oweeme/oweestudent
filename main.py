@@ -2,10 +2,12 @@ import sys
 
 import flet as ft
 
+import i18n
 from database import repo
 from database.db import DB_PATH
 from engine import ai, enlace, sync
 from engine.entorno import restaurar_librerias
+from i18n import t
 from ui.state import AppState
 from ui.views import (ajustes, estudio, hoy, importar, login, material, plan, planes, repaso,
                       sincronizar, stats)
@@ -14,6 +16,7 @@ TEMAS = {"dark": ft.ThemeMode.DARK, "light": ft.ThemeMode.LIGHT, "system": ft.Th
 
 
 def main(page: ft.Page):
+    i18n.iniciar()   # idioma guardado, o el del sistema la primera vez
     page.title = "OweeStudent"
     page.theme_mode = TEMAS.get(ai.cargar_config().get("tema", "dark"), ft.ThemeMode.DARK)
     page.padding = 16
@@ -28,23 +31,23 @@ def main(page: ft.Page):
         page.add(ft.SafeArea(login.build(st, mostrar_app), expand=True))
         page.update()
 
-    def mostrar_app():
+    def mostrar_app(vista=None):
         page.clean()
         page.vertical_alignment = ft.MainAxisAlignment.START
         page.horizontal_alignment = ft.CrossAxisAlignment.START
-        construir_app()
+        construir_app(vista)
 
-    def construir_app():
+    def construir_app(vista=None):
         cuerpo = ft.Container(expand=True, alignment=ft.alignment.top_left)
         HOY, PLAN, MATERIAL, REPASO, ESTUDIAR, PLANES, IMPORTAR, METRICAS, SINCRONIZAR, AJUSTES = range(10)
         PRINCIPALES = [HOY, PLAN, MATERIAL, REPASO]      # barra inferior / barra lateral (+ «Más»)
         SIN_PLAN_OK = (PLANES, IMPORTAR, ESTUDIAR, REPASO, METRICAS, SINCRONIZAR, AJUSTES)
-        SECUNDARIAS = [(ESTUDIAR, "Estudiar (Pomodoro y tarjetas)", ft.Icons.TIMER),
-                       (PLANES, "Carpetas y asignaturas", ft.Icons.FOLDER_COPY),
-                       (IMPORTAR, "Importar plan", ft.Icons.UPLOAD_FILE),
-                       (METRICAS, "Métricas", ft.Icons.INSERT_CHART),
-                       (SINCRONIZAR, "Sincronizar con otro equipo", ft.Icons.SYNC),
-                       (AJUSTES, "Ajustes, IA y apariencia", ft.Icons.SETTINGS)]
+        SECUNDARIAS = [(ESTUDIAR, t("Estudiar (Pomodoro y tarjetas)"), ft.Icons.TIMER),
+                       (PLANES, t("Carpetas y asignaturas"), ft.Icons.FOLDER_COPY),
+                       (IMPORTAR, t("Importar plan"), ft.Icons.UPLOAD_FILE),
+                       (METRICAS, t("Métricas"), ft.Icons.INSERT_CHART),
+                       (SINCRONIZAR, t("Sincronizar con otro equipo"), ft.Icons.SYNC),
+                       (AJUSTES, t("Ajustes, IA y apariencia"), ft.Icons.SETTINGS)]
         vistas = {
             HOY: lambda: hoy.build(st, lambda: ir(ESTUDIAR), lambda: ir(HOY), lambda: ir(REPASO)),
             PLAN: lambda: plan.build(st, lambda: ir(ESTUDIAR), lambda: ir(PLAN)),
@@ -55,15 +58,15 @@ def main(page: ft.Page):
             IMPORTAR: lambda: importar.build(st, lambda: ir(PLAN)),
             METRICAS: lambda: stats.build(st),
             SINCRONIZAR: lambda: sincronizar.build(st, lambda: ir(SINCRONIZAR)),
-            AJUSTES: lambda: ajustes.build(st, lambda: ir(HOY)),
+            AJUSTES: lambda: ajustes.build(st, lambda: ir(HOY), lambda: mostrar_app(AJUSTES)),
         }
-        ETIQ = {HOY: ("Hoy", ft.Icons.TODAY), PLAN: ("Plan", ft.Icons.SCHOOL),
-                MATERIAL: ("Material", ft.Icons.MENU_BOOK), REPASO: ("Repaso", ft.Icons.REPLAY)}
+        ETIQ = {HOY: (t("Hoy"), ft.Icons.TODAY), PLAN: (t("Plan"), ft.Icons.SCHOOL),
+                MATERIAL: (t("Material"), ft.Icons.MENU_BOOK), REPASO: (t("Repaso"), ft.Icons.REPLAY)}
 
         def pantalla_mas():
-            return ft.Column([ft.Text("Más", style=ft.TextThemeStyle.HEADLINE_SMALL),
-                              *[ft.ListTile(leading=ft.Icon(ic), title=ft.Text(t), trailing=ft.Icon(ft.Icons.CHEVRON_RIGHT),
-                                            on_click=lambda _, i=i: ir(i)) for i, t, ic in SECUNDARIAS]],
+            return ft.Column([ft.Text(t("Más"), style=ft.TextThemeStyle.HEADLINE_SMALL),
+                              *[ft.ListTile(leading=ft.Icon(ic), title=ft.Text(txt), trailing=ft.Icon(ft.Icons.CHEVRON_RIGHT),
+                                            on_click=lambda _, i=i: ir(i)) for i, txt, ic in SECUNDARIAS]],
                              spacing=4, scroll=ft.ScrollMode.AUTO, expand=True)
 
         def seleccionar(i):
@@ -77,7 +80,7 @@ def main(page: ft.Page):
 
         def ir(i):
             cuerpo.content = vistas[i]() if (st.plan_id or i in SIN_PLAN_OK) else ft.Text(
-                "Aún no hay asignatura. Ve a «Más → Carpetas y asignaturas» o «Importar plan».")
+                t("Aún no hay asignatura. Ve a «Más → Carpetas y asignaturas» o «Importar plan»."))
             seleccionar(i)
             page.update()
 
@@ -88,11 +91,11 @@ def main(page: ft.Page):
         rail = ft.NavigationRail(
             selected_index=0, label_type=ft.NavigationRailLabelType.ALL, on_change=al_cambiar,
             destinations=[ft.NavigationRailDestination(icon=ETIQ[i][1], label=ETIQ[i][0]) for i in PRINCIPALES]
-            + [ft.NavigationRailDestination(icon=ft.Icons.MENU, label="Más")])
+            + [ft.NavigationRailDestination(icon=ft.Icons.MENU, label=t("Más"))])
         bar = ft.NavigationBar(
             selected_index=0, on_change=al_cambiar,
             destinations=[ft.NavigationBarDestination(icon=ETIQ[i][1], label=ETIQ[i][0]) for i in PRINCIPALES]
-            + [ft.NavigationBarDestination(icon=ft.Icons.MENU, label="Más")])
+            + [ft.NavigationBarDestination(icon=ft.Icons.MENU, label=t("Más"))])
         divisor = ft.VerticalDivider(width=1)
 
         def layout(_=None):
@@ -113,7 +116,7 @@ def main(page: ft.Page):
                     st.elegir_perfil(st.perfil_id)
                     st.toast("✅ " + r)
                 except Exception as ex:
-                    st.toast(f"No se pudo sincronizar: {ex}")
+                    st.toast(t("No se pudo sincronizar: {ex}", ex=ex))
             import threading
             threading.Thread(target=hacer, daemon=True).start()
 
@@ -122,7 +125,10 @@ def main(page: ft.Page):
         page.add(ft.SafeArea(ft.Row([rail, divisor, cuerpo], expand=True,
                                     vertical_alignment=ft.CrossAxisAlignment.STRETCH), expand=True))
         layout()
-        ir(HOY) if st.plan_id else ir_mas()
+        if vista is not None:      # p. ej. tras cambiar de idioma: volver a la misma pantalla
+            ir(vista)
+        else:
+            ir(HOY) if st.plan_id else ir_mas()
         abrir_enlace()   # si la app se abrió desde un QR
 
     if repo.hay_claves(st.conn):

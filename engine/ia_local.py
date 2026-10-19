@@ -17,6 +17,7 @@ import zipfile
 from pathlib import Path
 
 from database.db import DATOS
+from i18n import t
 
 LLAMA_TAG = "b11312"
 BASE_MOTOR = f"https://github.com/ggml-org/llama.cpp/releases/download/{LLAMA_TAG}/"
@@ -106,15 +107,14 @@ def descargar(url: str, destino: Path, progreso, etiqueta: str = "") -> None:
                         f.write(bloque)
                         hecho += len(bloque)
                         if total:
-                            progreso(hecho / total, f"{etiqueta} {hecho / 1048576:.0f} de {total / 1048576:.0f} MB")
+                            progreso(hecho / total, t("{etiqueta} {hecho:.0f} de {total:.0f} MB", etiqueta=etiqueta, hecho=hecho / 1048576, total=total / 1048576))
             if total and parcial.stat().st_size < total:
                 raise OSError("descarga incompleta")
             parcial.rename(destino)
             return
         except (OSError, urllib.error.URLError) as ex:
             if intento == 5:
-                raise RuntimeError(f"No se pudo descargar ({ex}). Revisa tu conexión y vuelve a intentarlo: "
-                                   "continuará donde se quedó.") from ex
+                raise RuntimeError(t("No se pudo descargar ({ex}). Revisa tu conexión y vuelve a intentarlo: continuará donde se quedó.", ex=ex)) from ex
             time.sleep(2)
 
 
@@ -144,19 +144,19 @@ def instalar(clave: str, progreso) -> None:
     """Descarga e instala motor + modelo. Seguro de repetir: lo ya descargado se reutiliza."""
     paq = paquete_motor()
     if paq is None:
-        raise RuntimeError("Este dispositivo no puede ejecutar la IA integrada. Usa la IA de otro equipo.")
+        raise RuntimeError(t("Este dispositivo no puede ejecutar la IA integrada. Usa la IA de otro equipo."))
     archivo_modelo, url_modelo, _, _ = MODELOS[clave]
     if _exe() is None:
-        descargar(paq[1], DIR / paq[0], lambda f, t: progreso(f * 0.1, t), "Motor de IA")
+        descargar(paq[1], DIR / paq[0], lambda f, txt: progreso(f * 0.1, txt), t("Motor de IA"))
         _extraer(DIR / paq[0], DIR / "motor")
         exe = _exe()
         if exe is None:
-            raise RuntimeError("El paquete del motor de IA no contiene llama-server")
+            raise RuntimeError(t("El paquete del motor de IA no contiene llama-server"))
         exe.chmod(exe.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
         (DIR / paq[0]).unlink(missing_ok=True)
-    descargar(url_modelo, DIR / archivo_modelo, lambda f, t: progreso(0.1 + f * 0.9, t), "Modelo")
+    descargar(url_modelo, DIR / archivo_modelo, lambda f, txt: progreso(0.1 + f * 0.9, txt), t("Modelo"))
     _estado_ruta().write_text(json.dumps({"modelo": clave}))
-    progreso(1.0, "Listo")
+    progreso(1.0, t("Listo"))
 
 
 def desinstalar() -> None:
@@ -190,7 +190,7 @@ def asegurar(espera: int = 120) -> str:
     with _srv["lock"]:
         e = estado()
         if not e["instalado"]:
-            raise RuntimeError("La IA integrada no está instalada (Ajustes → IA)")
+            raise RuntimeError(t("La IA integrada no está instalada (Ajustes → IA)"))
         if not _vivo():
             exe = _exe()
             env = dict(os.environ)
@@ -208,7 +208,7 @@ def asegurar(espera: int = 120) -> str:
                 break
             time.sleep(0.5)
         else:
-            raise RuntimeError("El motor de IA tardó demasiado en arrancar")
+            raise RuntimeError(t("El motor de IA tardó demasiado en arrancar"))
         _reiniciar_reloj()
     return url()
 
@@ -228,9 +228,8 @@ def _explicar_fallo() -> str:
     if m:
         lib = m.group(1)
         pkg = _PAQUETES.get(lib, lib)
-        return (f"A tu sistema le falta una librería ({lib}). Instálala una vez con: sudo apt install {pkg} "
-                "(o pide ayuda a quien administre el equipo) y vuelve a intentarlo.")
-    return "El motor de IA se cerró al arrancar (detalles en " + str(DIR / "servidor.log") + ")"
+        return t("A tu sistema le falta una librería ({lib}). Instálala una vez con: sudo apt install {pkg} (o pide ayuda a quien administre el equipo) y vuelve a intentarlo.", lib=lib, pkg=pkg)
+    return t("El motor de IA se cerró al arrancar (detalles en {ruta})", ruta=DIR / "servidor.log")
 
 
 def _reiniciar_reloj():

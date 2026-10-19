@@ -5,11 +5,13 @@ import subprocess
 import sys
 import urllib.request
 
+from i18n import marcar, t
+
 # (modelo Ollama, RAM aproximada en GB con contexto de 2048 tokens, descripción)
-MODELOS = [("qwen2.5:0.5b", 0.6, "mínimo (equipos muy justos)"),
-           ("qwen2.5:1.5b", 1.3, "ligero"),
-           ("qwen2.5:3b", 2.4, "equilibrado"),
-           ("qwen2.5:7b", 5.2, "completo")]
+MODELOS = [("qwen2.5:0.5b", 0.6, marcar("mínimo (equipos muy justos)")),
+           ("qwen2.5:1.5b", 1.3, marcar("ligero")),
+           ("qwen2.5:3b", 2.4, marcar("equilibrado")),
+           ("qwen2.5:7b", 5.2, marcar("completo"))]
 
 
 def ram_gb() -> tuple[float, float]:
@@ -58,4 +60,4 @@ def descargar_modelo(url: str, modelo: str, progreso) -> None:
                 progreso(d.get("completed", 0) / d["total"], d.get("status", ""))
             else:
                 progreso(0, d.get("status", ""))
-    progreso(1, "listo")
+    progreso(1, t("listo"))

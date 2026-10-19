@@ -6,6 +6,7 @@ Plan de estudios + repaso espaciado (**FSRS**) + IA **local opcional**, para est
 - Importa planes en **MD, TXT, PDF, DOCX, XLSX** (o pega texto): detecta módulos, temas, libros, enlaces, entregables e idiomas.
 - **Material de estudio**: adjunta PDF/Word/Excel/CSV sin duplicar (por huella), léelo dentro de la app, guarda conclusiones, crea tarjetas de cada página e importa vocabulario desde Excel (ideal para alemán/chino).
 - Modo **claro / oscuro / automático**.
+- **Idiomas de la interfaz**: español e inglés (Ajustes → «Idioma de la interfaz»; la primera vez usa el del sistema). Alemán, ruso, chino, japonés y Owee están en camino; ver «Traducir la app».
 - **Tarjetas de repaso** hechas de *tus* apuntes (con o sin IA) y repaso con FSRS.
 - Pomodoro, metas semanales, racha, retención y proyección de fin.
 - **Perfiles con clave** opcional (varios usuarios: tú, un familiar…).
@@ -37,6 +38,7 @@ En Linux necesita `libgomp1` y `libssl3` (casi siempre ya instaladas; si faltan,
 Alternativa para quien ya lo tiene: Ollama o LM Studio (*Opciones avanzadas*).
 
 ## Datos y privacidad
+- Antes de actualizar la base de una versión anterior y antes de cada sincronización, la app guarda una copia en `~/.oweestudent/respaldos/` (las últimas 5 de cada tipo).
 - Tus datos viven en `~/.oweestudent/estudios.db` (Windows: `%USERPROFILE%\.oweestudent`). No sale nada de tu equipo.
 - La clave de perfil protege la app, **no cifra el archivo**: para eso cifra el disco del sistema.
 - La sincronización usa HTTP en tu red local con un PIN de un solo uso (5 min, se cierra tras 5 intentos fallidos). Úsala en tu red de casa, no en Wi-Fi público. Al compartir una carpeta no viajan tus claves ni el resto de tu estudio.
@@ -48,6 +50,13 @@ Alternativa para quien ya lo tiene: Ollama o LM Studio (*Opciones avanzadas*).
 - Los archivos de material viajan del equipo que comparte al que recibe; un archivo que solo tiene el equipo que recibe no se envía de vuelta.
 - DOCX no está disponible en Android.
 - La mezcla usa la hora de cada equipo: si los relojes difieren mucho, «el más reciente» puede fallar.
+
+## Traducir la app
+Los textos están en español dentro del código: `t("Guardar")`, `tn(n, "{n} día", "{n} días")` (plurales) y `marcar("Lunes")` (listas que se traducen después). Cada idioma es un diccionario `{texto en español: traducción}` en `i18n/catalogos/<código>.py` (copia `en.py`). Para ver qué falta:
+```bash
+.venv/bin/python -m i18n.extraer
+```
+Las pruebas (`tests/test_i18n.py`) fallan si falta un texto, si una traducción pierde una `{variable}` o si un plural no es una tupla de formas.
 
 ## Desarrollo
 ```bash

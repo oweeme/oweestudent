@@ -14,7 +14,8 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from database.db import sin_triggers
+from database.db import respaldar, sin_triggers
+from i18n import t
 
 PUERTO = 8765
 MAX_FALLOS = 5  # intentos de PIN erróneos antes de cerrar el servidor
@@ -47,29 +48,26 @@ def diagnosticar(host: str, puerto: int = PUERTO) -> tuple[bool, str]:
     import errno
     yo = ip_local()
     if yo.startswith("127."):
-        return False, "Este equipo no está conectado a ninguna red Wi-Fi/LAN."
+        return False, t("Este equipo no está conectado a ninguna red Wi-Fi/LAN.")
     if host.rsplit(".", 1)[0] != yo.rsplit(".", 1)[0]:
-        return False, (f"Los equipos parecen estar en redes distintas (este: {yo}, el otro: {host}). "
-                       "Conecta ambos al mismo Wi-Fi (ojo con «red de invitados» o datos móviles).")
+        return False, t("Los equipos parecen estar en redes distintas (este: {yo}, el otro: {host}). Conecta ambos al mismo Wi-Fi (ojo con «red de invitados» o datos móviles).", yo=yo, host=host)
     try:
         with socket.create_connection((host, puerto), timeout=3):
             pass
     except socket.timeout:
-        return False, ("El otro equipo no responde (tiempo agotado). Casi siempre es su CORTAFUEGOS bloqueando "
-                       f"conexiones entrantes. En Linux: sudo ufw allow {puerto}/tcp  ·  En Deepin: Centro de control → "
-                       f"Cortafuegos. O prueba al revés: pulsa «Permitir sincronización» en ESTE equipo y busca desde el otro.")
+        return False, t("El otro equipo no responde (tiempo agotado). Casi siempre es su CORTAFUEGOS bloqueando conexiones entrantes. En Linux: sudo ufw allow {puerto}/tcp  ·  En Deepin: Centro de control → Cortafuegos. O prueba al revés: pulsa «Permitir sincronización» en ESTE equipo y busca desde el otro.", puerto=puerto)
     except ConnectionRefusedError:
-        return False, "El equipo está encendido pero la sincronización no está abierta: pulsa «Permitir sincronización» allí."
+        return False, t("El equipo está encendido pero la sincronización no está abierta: pulsa «Permitir sincronización» allí.")
     except OSError as ex:
         if ex.errno in (errno.EHOSTUNREACH, errno.ENETUNREACH):
-            return False, "No hay ruta hacia ese equipo: revisa que esté encendido y en el mismo Wi-Fi."
-        return False, f"No se pudo conectar: {ex}"
+            return False, t("No hay ruta hacia ese equipo: revisa que esté encendido y en el mismo Wi-Fi.")
+        return False, t("No se pudo conectar: {ex}", ex=ex)
     try:
         with urllib.request.urlopen(f"http://{host}:{puerto}/hola", timeout=3) as r:
             d = json.loads(r.read())
-        return True, f"✅ Conectado con «{d.get('nombre', host)}». Falta el PIN."
+        return True, t("✅ Conectado con «{nombre}». Falta el PIN.", nombre=d.get("nombre", host))
     except Exception:
-        return False, "Hay algo en ese puerto, pero no es OweeStudent."
+        return False, t("Hay algo en ese puerto, pero no es OweeStudent.")
 
 
 def qr_base64(texto: str) -> str:
@@ -98,7 +96,7 @@ def _snapshot(conn: sqlite3.Connection, carpeta_uid: str | None = None) -> bytes
             c = dst.execute("SELECT id, perfil_id FROM carpetas WHERE uid=?", (carpeta_uid,)).fetchone()
             if c is None:
                 dst.close()
-                raise ValueError("Esa carpeta no existe")
+                raise ValueError(t("Esa carpeta no existe"))
             dst.execute("DELETE FROM planes WHERE carpeta_id IS NOT ?", (c[0],))
             dst.execute("DELETE FROM carpetas WHERE id != ?", (c[0],))
             dst.execute("DELETE FROM perfiles WHERE id != ?", (c[1],))
@@ -266,7 +264,7 @@ def _validar(ruta):
     finally:
         c.close()
     if not TABLAS_ESPERADAS <= tablas:
-        raise ValueError("El archivo recibido no es una base de OweeStudent")
+        raise ValueError(t("El archivo recibido no es una base de OweeStudent"))
 
 
 def recibir(conn, enlace: str, db_path: str, pin: str | None = None) -> str:
@@ -278,7 +276,7 @@ def recibir(conn, enlace: str, db_path: str, pin: str | None = None) -> str:
     u = urlparse(enlace)
     token = (pin or "").strip() or parse_qs(u.query).get("t", [""])[0]
     if not token:
-        raise ValueError("Falta el PIN del otro equipo")
+        raise ValueError(t("Falta el PIN del otro equipo"))
     base = f"{u.scheme}://{u.netloc}"
     with tempfile.TemporaryDirectory() as d:
         tmp = Path(d) / "remota.db"
@@ -287,10 +285,9 @@ def recibir(conn, enlace: str, db_path: str, pin: str | None = None) -> str:
                 tmp.write_bytes(r.read())
                 carpeta_uid = r.headers.get("X-Carpeta-Uid")
         except urllib.error.HTTPError as ex:
-            raise ValueError("PIN incorrecto" if ex.code == 403 else f"El otro equipo respondió {ex.code}") from ex
+            raise ValueError(t("PIN incorrecto") if ex.code == 403 else t("El otro equipo respondió {code}", code=ex.code)) from ex
         _validar(tmp)
-        if db_path != ":memory:" and Path(db_path).exists():
-            shutil.copy(db_path, str(db_path) + ".respaldo")
+        respaldar(conn, db_path, "antes-de-sincronizar")   # si la mezcla sale mal, la base de antes está en «respaldos»
         if es_virgen(conn):  # equipo nuevo: copia completa (conserva identidades)
             src = sqlite3.connect(tmp)
             try:
@@ -298,20 +295,20 @@ def recibir(conn, enlace: str, db_path: str, pin: str | None = None) -> str:
             finally:
                 src.close()
             conn.commit()
-            resumen = "Equipo nuevo: recibiste una copia completa"
+            resumen = t("Equipo nuevo: recibiste una copia completa")
         else:
             st = fusionar(conn, str(tmp))
-            resumen = f"Mezclado: {st['nuevos']} nuevos, {st['actualizados']} actualizados, {st['borrados']} borrados"
+            resumen = t("Mezclado: {nuevos} nuevos, {actualizados} actualizados, {borrados} borrados", nuevos=st["nuevos"], actualizados=st["actualizados"], borrados=st["borrados"])
     n_arch = traer_material(conn, base, token)
     if n_arch:
-        resumen += f"; {n_arch} archivos de material copiados"
+        resumen += "; " + t("{n} archivos de material copiados", n=n_arch)
     req = urllib.request.Request(f"{base}/devolver?t={token}", _snapshot(conn, carpeta_uid), method="POST",
                                  headers={"Content-Type": "application/octet-stream"})
     try:
         urllib.request.urlopen(req, timeout=60).read()
-        return resumen + ". El otro equipo también quedó actualizado."
+        return resumen + t(". El otro equipo también quedó actualizado.")
     except Exception as ex:
-        return resumen + f". Pero no pude devolverlo al otro equipo ({ex})."
+        return resumen + t(". Pero no pude devolverlo al otro equipo ({ex}).", ex=ex)
 
 
 def buscar_equipos(puerto: int = PUERTO, incluir_propio: bool = False) -> list[dict]:
