@@ -2,11 +2,17 @@
 import os
 import sqlite3
 from contextlib import contextmanager
+from datetime import datetime
 from pathlib import Path
 
 # Para sincronizar con Syncthing, apunta OWEE_DB a una carpeta sincronizada.
 DATOS = Path(os.environ.get("FLET_APP_STORAGE_DATA") or Path.home() / ".oweestudent")  # Android: carpeta de la app
 DB_PATH = os.environ.get("OWEE_DB", str(DATOS / "estudios.db"))
+
+# Versión del esquema (PRAGMA user_version). Súbela cuando una migración cambie la estructura:
+# antes de migrar una base más antigua se guarda una copia en la carpeta «respaldos».
+VERSION_ESQUEMA = 1
+MAX_RESPALDOS = 5   # copias que se conservan por motivo
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS perfiles (
@@ -179,6 +185,24 @@ def migrar_sync(conn):
         conn.execute(f"CREATE UNIQUE INDEX IF NOT EXISTS idx_{t}_uid ON {t}(uid)")
 
 
+def respaldar(conn: sqlite3.Connection, db_path: str, motivo: str) -> Path | None:
+    """Copia consistente de la base en «respaldos/» (junto a ella). Conserva las últimas MAX_RESPALDOS por motivo."""
+    if db_path == ":memory:" or not Path(db_path).exists():
+        return None
+    carpeta = Path(db_path).parent / "respaldos"
+    carpeta.mkdir(parents=True, exist_ok=True)
+    base = Path(db_path).stem
+    destino = carpeta / f"{base}-{motivo}-{datetime.now():%Y%m%d-%H%M%S-%f}.db"
+    dst = sqlite3.connect(destino)
+    try:
+        conn.backup(dst)
+    finally:
+        dst.close()
+    for viejo in sorted(carpeta.glob(f"{base}-{motivo}-*.db"))[:-MAX_RESPALDOS]:
+        viejo.unlink(missing_ok=True)
+    return destino
+
+
 def connect(db_path: str = DB_PATH) -> sqlite3.Connection:
     if db_path != ":memory:":
         Path(db_path).parent.mkdir(parents=True, exist_ok=True)
@@ -190,6 +214,10 @@ def connect(db_path: str = DB_PATH) -> sqlite3.Connection:
 
 def init_db(db_path: str = DB_PATH) -> sqlite3.Connection:
     conn = connect(db_path)
+    version = conn.execute("PRAGMA user_version").fetchone()[0]
+    ya_existia = conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='planes'").fetchone()
+    if ya_existia and version < VERSION_ESQUEMA:   # base de una versión anterior: copia de seguridad antes de migrar
+        respaldar(conn, db_path, f"antes-de-v{VERSION_ESQUEMA}")
     conn.executescript(SCHEMA)
     cols = [r["name"] for r in conn.execute("PRAGMA table_info(planes)")]
     if "perfil_id" not in cols:  # migración de bases creadas antes de los perfiles
@@ -211,5 +239,7 @@ def init_db(db_path: str = DB_PATH) -> sqlite3.Connection:
     # cronograma duplicado por importar dos veces el mismo plan: se conserva la primera fila de cada grupo
     conn.execute("""DELETE FROM cronograma WHERE id NOT IN
                     (SELECT MIN(id) FROM cronograma GROUP BY plan_id, dia, bloque, actividad)""")
+    if version < VERSION_ESQUEMA:
+        conn.execute(f"PRAGMA user_version={VERSION_ESQUEMA}")
     conn.commit()
     return conn

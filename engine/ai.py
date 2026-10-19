@@ -12,6 +12,8 @@ import urllib.request
 from datetime import date, timedelta
 from pathlib import Path
 
+from i18n import t
+
 CONFIG = Path(os.environ.get("FLET_APP_STORAGE_DATA") or Path.home() / ".oweestudent") / "config.json"  # fuera de la BD: cada equipo tiene su propia IA
 
 
@@ -104,14 +106,14 @@ def _llm(prompt: str, system: str, max_tokens=4000) -> str:
     if cfg.get("remoto_url") and cfg.get("remoto_modelo"):
         intentos.append(("otro equipo", lambda: _local(prompt, system, max_tokens, cfg["remoto_url"], cfg["remoto_modelo"])))
     if not intentos:
-        raise RuntimeError("Configura una IA en Ajustes (este equipo u otro de tu red)")
+        raise RuntimeError(t("Configura una IA en Ajustes (este equipo u otro de tu red)"))
     errores = []
     for nombre, f in intentos:
         try:
             return f()
         except Exception as ex:
             errores.append(f"{nombre}: {ex}")
-    raise RuntimeError("Ninguna IA respondió → " + " | ".join(errores))
+    raise RuntimeError(t("Ninguna IA respondió →") + " " + " | ".join(errores))
 
 
 def buscar_en_red(puerto: int = 11434) -> list[tuple[str, list[str]]]:
@@ -153,7 +155,7 @@ def generar_plan(objetivo: str, nivel: str, horas_semana: float, meses: int) -> 
     mods = _lineas(_llm(f"Materia: {objetivo}. Nivel {nivel}.\nLista {n} módulos de ESTA materia, del básico al avanzado. "
                            f"Todos deben tratar específicamente de {objetivo}. Solo títulos cortos.", sis, 150), n)
     if not mods:
-        raise RuntimeError("El modelo no devolvió módulos. Reintenta.")
+        raise RuntimeError(t("El modelo no devolvió módulos. Reintenta."))
     por_mod = max(1, meses // len(mods))
     md = [f"# {objetivo}", f"**Duración Total:** {meses} meses", f"**Dedicación:** {horas_semana:g} horas semanales", ""]
     for i, m in enumerate(mods):
@@ -163,7 +165,7 @@ def generar_plan(objetivo: str, nivel: str, horas_semana: float, meses: int) -> 
         ent = _lineas(_llm(f"Propón UN proyecto práctico corto sobre '{m}' dentro de {objetivo}. "
                               "Una sola línea, distinto de otros proyectos.", sis, 60), 1)
         md += [f"### 🔹 Módulo {i + 1}: {m} (Meses {i * por_mod + 1} - {(i + 1) * por_mod})",
-               "* **Temas Clave:**", *[f"  * {t}" for t in temas]]
+               "* **Temas Clave:**", *[f"  * {tm}" for tm in temas]]
         if ent:
             md += [f"* **📝 Caso de Estudio Práctico (Tarea {i + 1}):**", f"  * *Entregable:* {ent[0]}"]
         md.append("")
