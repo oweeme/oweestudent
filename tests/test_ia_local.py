@@ -123,3 +123,10 @@ def test_error_de_libreria_se_explica(instalador, monkeypatch):
     (ia_local.DIR / "servidor.log").write_text("x: error while loading shared libraries: libgomp.so.1: cannot open shared object file")
     texto = ia_local._explicar_fallo()
     assert "libgomp1" in texto and "sudo apt install" in texto
+
+
+def test_la_url_de_cada_modelo_termina_en_el_nombre_exacto_del_archivo():
+    """Hugging Face distingue mayúsculas: «0.5B» en la carpeta, «0.5b» en el archivo (un error aquí da 404)."""
+    for archivo, url, _, _ in ia_local.MODELOS.values():
+        assert url.rsplit("/", 1)[1] == archivo
+        assert url.rsplit("/", 1)[1].islower()

@@ -208,3 +208,49 @@ def test_importar_aqui_crea_un_plan_nuevo_en_la_carpeta_y_no_suma_al_plan_activo
     assert nuevo != activo
     assert st.conn.execute("SELECT carpeta_id FROM planes WHERE id=?", (nuevo,)).fetchone()["carpeta_id"] == k
     assert estudios.resumen(st.conn, nuevo)["temas"] == 3
+
+
+PDF_TEXTO = """🎓  Global Master in International
+Management & Language Mastery
+Modalidad: Autodidacta
+Duración Total: 18 Meses (3 Semestres)
+📚  SEMESTRE 1: FUNDAMENTOS DIRECTIVOS,
+FINANZAS E IDIOMAS BASE (Meses 1 - 6)
+🔹  Módulo 1: Estrategia Empresarial Global
+(Meses 1 - 2)
+Temas Clave:
+Marco de ventaja competitiva internacional (Diamante de Porter).
+Estrategias de entrada a mercados: Exportación, Licencias,
+Joint Ventures y Filiales propias.
+Bibliografía Principal:
+Global Strategy – Mike W. Peng.
+📝  Caso de Estudio Práctico (Tarea 1):
+Entregable: Elaborar un informe de viabilidad
+de expansión internacional.
+🔹  Módulo 2: Finanzas Internacionales
+(Meses 3 - 4)
+Temas Clave:
+Incoterms 2020 en la práctica.
+🌐  Idiomas - Fase 1 (Meses 1 - 6)
+Inglés (Objetivo C1 - Profesional Avanzado):
+Tarea semanal: Leer 2 artículos y
+redactar un resumen.
+"""
+
+
+def test_un_pdf_con_la_forma_del_plan_recupera_modulos_temas_libros_y_entregables(st):
+    from parsers.pdf_plan import a_markdown
+    md = a_markdown(PDF_TEXTO)
+    pid = repo.importar_texto(st.conn, md, "x.pdf", None, st.perfil_id)
+    us = repo.unidades(st.conn, pid)
+    assert [u["titulo"] for u in us] == ["Módulo 1: Estrategia Empresarial Global", "Módulo 2: Finanzas Internacionales", "Idiomas - Fase 1"]
+    assert us[0]["semestre"].startswith("SEMESTRE 1") and us[0]["mes_ini"] == 1 and us[0]["mes_fin"] == 2
+    assert [t_["titulo"] for t_ in repo.temas(st.conn, us[0]["id"])][1].endswith("Filiales propias.")   # línea partida, un solo tema
+    assert repo.recursos(st.conn, us[0]["id"])[0]["contenido"] == "Global Strategy"
+    assert st.conn.execute("SELECT COUNT(*) FROM entregables").fetchone()[0] == 1
+    assert st.conn.execute("SELECT COUNT(*) FROM metas_idioma").fetchone()[0] == 1
+
+
+def test_un_pdf_sin_modulos_se_deja_igual():
+    from parsers.pdf_plan import a_markdown
+    assert a_markdown("solo una nota\nsin estructura") == "solo una nota\nsin estructura"

@@ -1068,4 +1068,5 @@ TEXTOS = {
     'Perfiles y usuarios': 'Profile und Nutzer',
     'Cada perfil tiene sus propias carpetas y planes. Tus carpetas y asignaturas están en la pestaña «Plan».': 'Jedes Profil hat seine eigenen Ordner und Pläne. Deine Ordner und Fächer findest du im Tab „Plan“.',
     'Agregar al plan «{titulo}»': 'Zum Plan „{titulo}“ hinzufügen',
+    'Importado, pero sin estructura: no encontré módulos y cada línea quedó como un tema. Para un plan ordenado usa un archivo con títulos (#, ##, ###).': 'Importiert, aber ohne Struktur: Ich habe keine Module gefunden, jede Zeile wurde ein Thema. Für einen geordneten Plan nutze eine Datei mit Überschriften (#, ##, ###).',
 }

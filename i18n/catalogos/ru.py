@@ -1068,4 +1068,5 @@ TEXTOS = {
     'Perfiles y usuarios': 'Профили и пользователи',
     'Cada perfil tiene sus propias carpetas y planes. Tus carpetas y asignaturas están en la pestaña «Plan».': 'У каждого профиля свои папки и планы. Ваши папки и предметы находятся на вкладке «План».',
     'Agregar al plan «{titulo}»': 'Добавить в план «{titulo}»',
+    'Importado, pero sin estructura: no encontré módulos y cada línea quedó como un tema. Para un plan ordenado usa un archivo con títulos (#, ##, ###).': 'Импортировано, но без структуры: модули не найдены, каждая строка стала темой. Для упорядоченного плана используйте файл с заголовками (#, ##, ###).',
 }
