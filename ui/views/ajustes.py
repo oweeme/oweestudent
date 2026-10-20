@@ -1,13 +1,17 @@
 import threading
+from datetime import date
 
 import flet as ft
 
 import app_info
 import i18n
-from engine import ai, ia_local, recursos
+from database.db import DB_PATH
+from engine import ai, ia_auto, ia_local, recursos
+from engine import respaldo as respaldo_motor
 from i18n import cobertura, fuentes, t
+from ui.components import guardar
 from ui.components.logo import logo
-from ui.components.widgets import tarjeta
+from ui.components.widgets import confirmar, tarjeta
 
 
 def build(st, recargar, reconstruir=lambda: None):
@@ -174,8 +178,48 @@ def build(st, recargar, reconstruir=lambda: None):
     refrescar_int()
     pct.on_change = lambda e: (actualizar_reco(), refrescar_int(), st.page.update())
 
+    # ---------- activar con un botón: usa lo que ya hay y solo descarga si hace falta ----------
+    texto_auto = ft.Text("", size=13)
+    barra_auto = ft.ProgressBar(value=0, visible=False)
+    detalle_auto = ft.Text("", size=12)
+    btn_auto = ft.ElevatedButton(t("✨ Activar IA"), icon=ft.Icons.AUTO_AWESOME)
+
+    def refrescar_auto():
+        if ai.ia_disponible():
+            texto_auto.value = t("✅ Tu IA está lista.")
+            btn_auto.visible = False
+        else:
+            d = ia_auto.diagnostico(pct.value)
+            texto_auto.value = ia_auto.describir(d)
+            btn_auto.visible = d["accion"] != "ninguna"
+
+    def activar_auto(_):
+        btn_auto.disabled = True
+        barra_auto.visible, barra_auto.value = True, None
+        st.page.update()
+
+        def prog(f, texto):
+            barra_auto.value, detalle_auto.value = f or None, f"{texto}  ({f:.0%})" if f else texto
+            st.page.update()
+
+        def hacer():
+            try:
+                msg(ia_auto.activar(prog, pct.value))
+            except Exception as ex:
+                msg(t("No se pudo activar: {ex}", ex=ex), True)
+            barra_auto.visible = False
+            btn_auto.disabled = False
+            refrescar_int()
+            refrescar_auto()
+            st.page.update()
+        threading.Thread(target=hacer, daemon=True).start()
+
+    btn_auto.on_click = activar_auto
+    refrescar_auto()
+
     avanzadas = ft.ExpansionTile(title=ft.Text(t("Opciones avanzadas (Ollama / IA de otro equipo)")), controls=[
         ft.Column([
+            estado_int, plan_int, pct, ft.Row([btn_instalar, btn_quitar], wrap=True), barra_int, texto_int,
             info_ram,
             ft.ElevatedButton(t("⬇ Instalar con Ollama (ya instalado)"), icon=ft.Icons.MEMORY, on_click=instalar_ia),
             barra, estado_pull,
@@ -188,8 +232,7 @@ def build(st, recargar, reconstruir=lambda: None):
     tarj_ia = tarjeta(
         t("Inteligencia artificial (opcional)"),
         ft.Text(t("Sin IA la app ya reprograma atrasados, crea tarjetas de tus apuntes y proyecta tu fin. Con IA añade: generar un plan desde un objetivo y tarjetas/resúmenes del material. Todo ocurre en tu equipo: nada sale de él."), size=13),
-        estado_int, plan_int, pct,
-        ft.Row([btn_instalar, btn_quitar], wrap=True), barra_int, texto_int,
+        texto_auto, btn_auto, barra_auto, detalle_auto,
         ft.OutlinedButton(t("Probar la IA"), icon=ft.Icons.PLAY_ARROW, on_click=probar), avanzadas)
 
     def cambiar_tema(e):
@@ -244,6 +287,54 @@ def build(st, recargar, reconstruir=lambda: None):
                                      ft.Segment(value="system", label=ft.Text(t("Auto")), icon=ft.Icon(ft.Icons.BRIGHTNESS_AUTO))]),
         idioma, aviso_fuente, *owee_ajustes)
 
+    # ---------- copia de seguridad ----------
+    def escribir_copia(destino):
+        r = respaldo_motor.crear_copia(st.conn, destino, con_archivos=con_archivos.value)
+        copia_info.value = t("Archivos de material incluidos: {n}", n=r["archivos"])
+
+    def copia_lista(destino, error):
+        msg(t("No se pudo guardar la copia: {ex}", ex=error) if error else t("✅ Copia guardada en: {ruta}", ruta=str(destino)), bool(error))
+
+    picker_copia = guardar.preparar(st.page, lambda ruta: guardar.escribir_elegido(ruta, "zip", escribir_copia, copia_lista))
+    con_archivos = ft.Switch(label=t("Incluir los archivos de material (PDF, Word…)"), value=True)
+    copia_info = ft.Text("", size=12)
+    ruta_copia = ft.TextField(label=t("Ruta de la copia (.zip) a restaurar"), width=320)
+
+    def restaurar(ruta):
+        ruta = (ruta or "").strip().strip("'\"")
+        try:
+            info = respaldo_motor.inspeccionar(ruta)
+        except ValueError as ex:
+            return msg(str(ex), True)
+
+        def hacer():
+            try:
+                respaldo_motor.restaurar(st.conn, DB_PATH, ruta)
+            except Exception as ex:
+                return msg(t("No se pudo restaurar: {ex}", ex=ex), True)
+            st.elegir_perfil(repo_perfil_inicial())
+            st.toast(t("✅ Copia restaurada. Tus datos anteriores quedaron en la carpeta «respaldos»."))
+            reconstruir()
+        confirmar(st.page, t("Restaurar reemplaza tus datos actuales por los de la copia ({planes} asignaturas, {tarjetas} tarjetas, guardada {fecha}). Antes se guarda una copia automática de lo que tienes. ¿Continuar?",
+                             planes=info["planes"], tarjetas=info["tarjetas"], fecha=info["fecha"][:10] or "?"), hacer)
+
+    def repo_perfil_inicial():
+        from database import repo
+        return repo.perfiles(st.conn)[0]["id"]
+
+    picker_restaurar = ft.FilePicker(on_result=lambda e: restaurar(e.files[0].path) if e.files and e.files[0].path else None)
+    st.page.overlay.append(picker_restaurar)
+    copia = tarjeta(
+        t("Copia de seguridad"),
+        ft.Text(t("Guarda todo tu estudio en un archivo (perfiles, asignaturas, tarjetas, lecturas, escritos…) para llevarlo a otro equipo o por si algo falla."), size=13),
+        con_archivos,
+        ft.Row([ft.ElevatedButton(t("Guardar copia de seguridad"), icon=ft.Icons.BACKUP,
+                                  on_click=lambda _: guardar.guardar(st.page, picker_copia, f"OweeStudent-copia-{date.today():%Y%m%d}", "zip", escribir_copia, copia_lista))],
+               wrap=True), copia_info,
+        ft.Row([ruta_copia, ft.OutlinedButton(t("Restaurar"), icon=ft.Icons.RESTORE, on_click=lambda _: restaurar(ruta_copia.value)),
+                *([ft.OutlinedButton(t("Elegir archivo…"), icon=ft.Icons.FOLDER_OPEN,
+                                     on_click=lambda _: picker_restaurar.pick_files(allowed_extensions=["zip"]))] if guardar.hay_dialogo(st.page) else [])], wrap=True))
+
     def abrir(url):
         return lambda _: st.page.launch_url(url)
 
@@ -258,6 +349,7 @@ def build(st, recargar, reconstruir=lambda: None):
         ft.Text(t("Ajustes"), theme_style=ft.TextThemeStyle.HEADLINE_SMALL), aviso, tarj_ia,
         apariencia,
         *([owee_ajustes_card] if owee_ajustes_card else []),
+        copia,
         acerca,
     ], spacing=12, scroll=ft.ScrollMode.AUTO, expand=True,
         horizontal_alignment=ft.CrossAxisAlignment.STRETCH)

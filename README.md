@@ -29,13 +29,22 @@ OweeStudent es gratis. Si te ayuda a estudiar, puedes colaborar con una donació
 
 macOS e iOS: aún no se publican (requieren compilar en un Mac y cuenta de Apple Developer).
 
-## IA integrada (opcional, sin instalar nada aparte)
-**Ajustes → «Instalar IA»**: la app descarga sola un motor ligero (~20 MB, `llama.cpp`) y un modelo pequeño, elegido según tu RAM
+## IA ligera con un botón (opcional)
+**Ajustes → «✨ Activar IA»**: la app mira qué hay en tu equipo y hace lo más corto, sin terminal:
+1. Si ya hay un servidor de IA funcionando (Ollama, LM Studio, llama.cpp, Jan), lo usa tal cual y elige el modelo más ligero: no descarga nada.
+2. Si tienes Ollama instalado pero apagado, lo enciende y, si no tiene modelos, baja uno ligero según tu RAM.
+3. Si no hay nada, instala la IA integrada: un motor de ~20 MB (`llama.cpp`) y un modelo pequeño, elegido según tu RAM
 (usa hasta el 10 %, ajustable): 4 GB → Qwen 0,5B (~0,5 GB), 16 GB → 1,5B (~1,1 GB), 32 GB → 3B (~2,1 GB).
 Se descarga una sola vez (se reanuda si se corta), se enciende sola al usarla y se apaga a los 2 minutos para liberar RAM.
 No existe en Android/iOS (no permiten ejecutar programas descargados): allí se usa la IA de tu PC (*Opciones avanzadas → Buscar en mi red*, requiere Ollama en el PC con `OLLAMA_HOST=0.0.0.0`).
 En Linux necesita `libgomp1` y `libssl3` (casi siempre ya instaladas; si faltan, la app te dice el comando exacto).
-Alternativa para quien ya lo tiene: Ollama o LM Studio (*Opciones avanzadas*).
+Sin IA también puedes usar «Copiar prompt» con tu chat favorito (Claude, ChatGPT…) y pegar la respuesta al importar.
+
+## Mis estudios (carpetas → planes → temario)
+La pestaña **Plan** abre «Mis estudios»: tus carpetas (Máster, Idiomas, 3.º de secundaria…) con sus planes, el avance de cada uno y el siguiente tema.
+**Abrir plan completo** muestra todo el temario (con la flecha ← vuelves a la lista); **Seguir estudiando** salta al siguiente tema pendiente.
+El curso de Aprende Owee es opcional y siempre queda al final. Si adjuntas en *Material* un archivo con módulos y temas (md, txt, pdf, docx), la app ofrece **Crear el plan**;
+también puedes usar el menú ⋮ del material → «Convertir en plan de estudio».
 
 ## Créditos
 La lengua Owee (glosario y léxico) es de Hector Martinez, CC BY-SA 4.0; la fuente Owee Sans (`assets/fonts`) es SIL OFL 1.1 (texto junto a ella); el conversor romano ↔ escritura se adapta de su código MIT.
@@ -48,12 +57,23 @@ La lengua Owee (glosario y léxico) es de Hector Martinez, CC BY-SA 4.0; la fuen
 - La sincronización usa HTTP en tu red local con un PIN de un solo uso (5 min, se cierra tras 5 intentos fallidos). Úsala en tu red de casa, no en Wi-Fi público. Al compartir una carpeta no viajan tus claves ni el resto de tu estudio.
 
 ## Limitaciones conocidas
+- **Móvil y tablet:** la interfaz se adapta (barra inferior bajo 700 px de ancho, lateral en pantallas grandes; diálogos y campos caben en 375 px), pero lo verifiqué emulando el tamaño del móvil en el navegador, no en dispositivos reales. No hay **notificaciones push**: Flet 0.28 no las ofrece; usa el archivo `.ics` de «Entregas y exámenes» con el calendario del teléfono. En Android, las exportaciones (Anki, escritos, copias) se guardan en la carpeta privada de la app: para sacarlas, usa el modo web desde el PC (`--web`) o sincroniza con el ordenador.
 - **Android es experimental:** la sincronización y la IA por red usan sockets de Python y deberían funcionar, pero falta confirmarlo en más dispositivos. Alternativa: en el PC, Sincronizar → «Usar en el móvil sin instalar nada» y abre la app en el navegador del móvil.
 - Escanear el QR con la cámara *dentro* de la app no está disponible (Flet 0.28 no incluye lector); se sustituye por buscar equipos por nombre + PIN. El QR lleva un enlace propio (`oweestudent://sync/…`) que, si Android lo abre desde la cámara, conecta solo: **experimental, sin confirmar en dispositivos reales**.
 - Si el móvil no encuentra al PC: casi siempre es el **cortafuegos del PC** bloqueando conexiones entrantes (Deepin/ufw: `sudo ufw allow 8765/tcp`). Prueba al revés (permitir en el móvil, buscar desde el PC) o usa «Conectar por IP» → «Probar conexión», que explica el motivo.
 - Los archivos de material viajan del equipo que comparte al que recibe; un archivo que solo tiene el equipo que recibe no se envía de vuelta.
 - DOCX no está disponible en Android.
 - La mezcla usa la hora de cada equipo: si los relojes difieren mucho, «el más reciente» puede fallar.
+
+## Aprender más rápido y aplicar lo aprendido
+- **Tarjetas con huecos** (`La {{fotosíntesis}} ocurre en los {{cloroplastos}}`: una tarjeta por hueco, como los «cloze» de Anki) y **huecos automáticos** sobre las palabras clave de tus apuntes.
+- **Tarjetas de producción:** en el repaso *escribes* la respuesta (vocabulario, Owee…); la app ignora mayúsculas y tildes, avisa si fue una errata y te sugiere la nota.
+- **Puntos débiles** («Más → Práctica activa → Puntos débiles»): los temas y las tarjetas que más fallas, a partir de tus repasos y prácticas, y un **refuerzo** (simulacro solo con lo que fallas).
+- **Retos prácticos:** cada tema puede tener un reto de aplicación con criterios que tú compruebas y una evidencia (qué hiciste, qué aprendiste). Plantillas por tipo, o propuesto por la IA con tu material.
+- **Sprints de 7 días** sobre un tema: explorar → entender → practicar → fijar → recordar → probarte → corregir. «Hoy» te muestra el paso que toca y cada paso abre la pantalla correspondiente.
+- **Resumen para la familia o el docente** («Métricas»): cifras y títulos de la semana, sin el contenido de tus notas; lo copias o lo guardas tú.
+- **Copia de seguridad** («Ajustes»): todo tu estudio (y tus archivos de material) en un `.zip`, y restauración con copia automática previa.
+- **Avisos en tu calendario** («Entregas y exámenes»): un archivo `.ics` con tus entregas (aviso el día antes y el mismo día) y un repaso diario a la hora que elijas. La app no manda notificaciones por sí sola; tu calendario sí.
 
 ## Para el colegio y para escribir
 **Estudiantes de colegio:** el nivel del perfil (primaria, secundaria, adolescente, universitario, adulto) ajusta la app: bloques de estudio más cortos (15 min en primaria), simulacros más breves, un Feynman «para alguien de 8 años» y menos horas propuestas por el asistente; la gestión de lecturas de investigación solo aparece desde la universidad. **«Más → Entregas y exámenes»** guarda tareas, exámenes y proyectos con su fecha: lo urgente sale en «Hoy», y el asistente crea el examen con su fecha cuando le das una fecha límite. Se puede compartir una carpeta con un compañero o docente por la sincronización.
@@ -77,6 +97,8 @@ La lengua Owee (glosario y léxico) es de Hector Martinez, CC BY-SA 4.0; la fuen
 «Más → Asistente de objetivo»: eliges qué quieres lograr (**asignatura o examen**, **idioma** con niveles MCER, **tecnología** o **maestría/doctorado**), cuentas tu situación y la app arma un plan con fases, fechas repartidas por meses y un cronograma semanal con tus horas reales. Antes de crearlo te dice si el tiempo te alcanza (y cuántas horas por semana o meses harían falta). Las plantillas ponen la **estructura**; no inventan el contenido de la materia (para una asignatura pegas tu temario). Las horas por idioma son orientativas.
 
 ## Aprende Owee (curso del idioma)
+Es **opcional**: tu estudio propio va siempre primero. Mientras no tengas uno, «Hoy» te guía a crear tu plan con el asistente o importar el que ya tengas, y ofrece el curso como una opción más; cuando ya tienes tu estudio, ese es el que se abre y manda en «Hoy», y el curso queda como un recordatorio discreto al final (si lo añadiste).
+
 «Más → Aprende Owee»: las 35 lecciones de los niveles 0–3 con glifos, romanización, vocabulario por parte, traducción oculta («tapa la traducción e intenta entender») y ejercicios con respuestas. Puedes añadir el curso a tu plan (carpeta «Owee»: un nivel por unidad, una lección por tema) y crear **por lección** tarjetas de glifos (vocales, 56 sílabas, dígitos) y de vocabulario (en los dos sentidos) para repasarlas con el resto. Las tarjetas guardan solo texto latino con una marca; los glifos se dibujan al mostrarlas. Se regenera con `python tools/owee_curso.py /ruta/a/owee`.
 
 ## Traducir la app
@@ -88,16 +110,43 @@ Los textos están en español dentro del código: `t("Guardar")`, `tn(n, "{n} d�
 ```
 Las pruebas (`tests/test_i18n.py`) fallan si falta un texto, si una traducción pierde una `{variable}` o si un plural no es una tupla de formas.
 
-## Desarrollo
+## Desarrollo y prueba en local
+Antes de publicar nada, prueba la app en tu equipo (no toca tus datos reales si usas una base de prueba).
+
 ```bash
-python3 -m venv .venv && .venv/bin/pip install -r requirements.txt pytest
-.venv/bin/python -m pytest        # pruebas
-.venv/bin/python main.py          # ejecutar
-.venv/bin/python main.py --web    # servir la app por Wi-Fi
+# 1) Entorno. Si falla con «ensurepip is not available» (Debian/Ubuntu): borra la carpeta a medias con  rm -rf .venv  y elige UNA:
+#    a) con sudo:     sudo apt install python3-venv   y repite el comando de abajo
+#    b) sin sudo:     uv venv .venv && uv pip install --python .venv/bin/python -r requirements.txt pytest ruff
+python3 -m venv .venv && .venv/bin/pip install -r requirements.txt pytest ruff
+
+# 2) Comprobaciones (≈ 40 s). Son las mismas que corre el CI
+.venv/bin/ruff check .
+.venv/bin/python -m pytest -q
+
+# 3) Ejecutar la app con DATOS DE PRUEBA (tu estudio real queda intacto)
+OWEE_DB=/tmp/owee-prueba.db FLET_APP_STORAGE_DATA=/tmp/owee-prueba .venv/bin/python main.py          # ventana de escritorio
+OWEE_DB=/tmp/owee-prueba.db FLET_APP_STORAGE_DATA=/tmp/owee-prueba .venv/bin/python main.py --web    # servidor en http://localhost:8550
+
+# 4) Ver cómo queda en el móvil o la tablet: con --web, abre  http://IP-DE-TU-PC:8550  en su navegador (mismo Wi-Fi;
+#    si no abre, puerto 8550 en el cortafuegos: sudo ufw allow 8550/tcp). En el navegador del PC, F12 → modo dispositivo.
 ```
+Sin las variables `OWEE_DB`/`FLET_APP_STORAGE_DATA` la app usa tu base real en `~/.oweestudent/`. Las pruebas automáticas nunca la tocan.
+
+**Atajo:** `./run-local.sh` (o `./run-local.sh --web`) hace todo lo del paso 3 y además resuelve el error `libmpv.so.1: cannot open shared object file` del cliente gráfico de Flet en distribuciones nuevas (que traen `libmpv.so.2`): crea un enlace en `~/.local/lib/owee`. Si no tienes libmpv: `sudo apt install libmpv2`.
+
+**Instaladores en tu equipo** (opcional; el CI los crea solos al publicar una versión):
+```bash
+.venv/bin/pip install pyinstaller
+.venv/bin/flet pack main.py --name OweeStudent -D -y -i assets/icon_256.png --add-data "assets:assets"     # Linux (en Windows: "assets;assets" e icon.ico)
+./dist/OweeStudent/OweeStudent                                                                            # probar el binario empaquetado
+```
+Android (`flet build apk`) necesita Flutter y el SDK de Android: es más cómodo dejar que lo haga GitHub Actions.
+
+**Lista antes de subir a GitHub:** ruff y pruebas en verde · abrir la app con datos de prueba y recorrer «Hoy», «Más» y «Ajustes» · en «Ajustes → Idioma» cambiar de idioma · exportar una copia de seguridad y restaurarla · `git status` sin archivos raros (nada de `.db`, `config.json` ni `exportaciones/`; el `.gitignore` ya los excluye).
+
 Linux empaquetado: el lanzador (`packaging/linux/launcher.sh`) enlaza `libmpv.so.2` como `libmpv.so.1` y, si la app no abre, muestra el motivo y lo guarda en `~/.local/share/oweestudent/ultimo-error.log`. En cada compilación se prueba en un Debian 12 limpio (`packaging/linux/smoke.sh`).
 El icono se genera con `tools/gorro.py` (logo de Oweeme + gorro).
-Publicar: `git tag v0.1.0 && git push --tags` → GitHub Actions compila y adjunta los instaladores a la Release.
+Publicar: `git tag v0.12.0 && git push --tags` → GitHub Actions compila y adjunta los instaladores a la Release.
 
 
 ---

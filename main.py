@@ -12,8 +12,8 @@ from engine.entorno import restaurar_librerias
 from i18n import marcar, t
 from ui import tema
 from ui.state import AppState
-from ui.views import (ajustes, aprende_owee, asistente, estudio, hoy, entregas, escritor, exportar, importar, lecturas, login, material, plan,
-                      planes, practica, preguntar, repaso, sincronizar, stats)
+from ui.views import (ajustes, aprende_owee, asistente, estudio, estudios, hoy, entregas, escritor, exportar, importar, lecturas, login, material, plan,
+                      planes, practica, preguntar, repaso, retos, sincronizar, sprint, stats)
 
 TEMAS = {"dark": ft.ThemeMode.DARK, "light": ft.ThemeMode.LIGHT, "system": ft.ThemeMode.SYSTEM}
 
@@ -50,17 +50,19 @@ def main(page: ft.Page):
 
     def construir_app(vista=None):
         cuerpo = ft.Container(expand=True, alignment=ft.alignment.top_left)
-        HOY, PLAN, MATERIAL, REPASO, ESTUDIAR, PLANES, IMPORTAR, METRICAS, SINCRONIZAR, AJUSTES, OWEE, ASISTENTE, LECTURAS, PREGUNTAR, PRACTICA, EXPORTAR, ENTREGAS, ESCRITOR = range(18)
+        HOY, PLAN, MATERIAL, REPASO, ESTUDIAR, PLANES, IMPORTAR, METRICAS, SINCRONIZAR, AJUSTES, OWEE, ASISTENTE, LECTURAS, PREGUNTAR, PRACTICA, EXPORTAR, ENTREGAS, ESCRITOR, RETOS, SPRINT = range(20)
         PRINCIPALES = [HOY, PLAN, MATERIAL, REPASO]      # barra inferior / barra lateral (+ «Más»)
-        SIN_PLAN_OK = (PLANES, IMPORTAR, ESTUDIAR, REPASO, METRICAS, SINCRONIZAR, AJUSTES, OWEE, ASISTENTE, PREGUNTAR, PRACTICA, EXPORTAR, ENTREGAS, ESCRITOR)
+        SIN_PLAN_OK = (HOY, PLAN, PLANES, IMPORTAR, ESTUDIAR, REPASO, METRICAS, SINCRONIZAR, AJUSTES, OWEE, ASISTENTE, PREGUNTAR, PRACTICA, EXPORTAR, ENTREGAS, ESCRITOR, RETOS, SPRINT)
         SECUNDARIAS = [(ENTREGAS, t("Entregas y exámenes"), ft.Icons.EVENT_AVAILABLE),
                        (ASISTENTE, t("Asistente de objetivo"), ft.Icons.FLAG),
                        (ESTUDIAR, t("Estudiar (Pomodoro y tarjetas)"), ft.Icons.TIMER),
+                       (SPRINT, t("Sprint de 7 días"), ft.Icons.BOLT),
+                       (RETOS, t("Retos prácticos"), ft.Icons.EMOJI_EVENTS),
                        (ESCRITOR, t("Escritor (monografías, tesis, libros)"), ft.Icons.EDIT_DOCUMENT),
                        (PRACTICA, t("Práctica activa (recordar, explicar, simulacro)"), ft.Icons.PSYCHOLOGY),
                        (LECTURAS, t("Lecturas (investigación)"), ft.Icons.LIBRARY_BOOKS),
                        (PREGUNTAR, t("Preguntar a mis documentos"), ft.Icons.QUESTION_ANSWER),
-                       (PLANES, t("Carpetas y asignaturas"), ft.Icons.FOLDER_COPY),
+                       (PLANES, t("Perfiles y usuarios"), ft.Icons.PEOPLE),
                        (IMPORTAR, t("Importar plan"), ft.Icons.UPLOAD_FILE),
                        (METRICAS, t("Métricas"), ft.Icons.INSERT_CHART),
                        (OWEE, t("Aprende Owee (curso del idioma)"), ft.Icons.TRANSLATE),
@@ -70,16 +72,20 @@ def main(page: ft.Page):
         investiga = niveles.ajustes(st.nivel())["investigacion"]      # la gestión de lecturas solo aparece desde la universidad
         SECUNDARIAS[:] = [x for x in SECUNDARIAS if investiga or x[0] != LECTURAS]
         vistas = {
-            HOY: lambda: hoy.build(st, lambda: ir(ESTUDIAR), lambda: ir(HOY), lambda: ir(REPASO), lambda: ir(ENTREGAS)),
-            PLAN: lambda: plan.build(st, lambda: ir(ESTUDIAR), lambda: ir(PLAN)),
-            MATERIAL: lambda: material.build(st, lambda: ir(MATERIAL)),
+            HOY: lambda: hoy.build(st, lambda: ir(ESTUDIAR), lambda: ir(HOY), lambda: ir(REPASO), lambda: ir(ENTREGAS), lambda: ir(SPRINT), lambda: ir(RETOS),
+                     lambda: ir(ASISTENTE), lambda: ir(IMPORTAR), lambda: ir(OWEE)),
+            PLAN: lambda: (plan.build(st, lambda: ir(ESTUDIAR), lambda: ir(PLAN)) if st.plan_abierto else
+                           estudios.build(st, abrir_plan, estudiar_tema, lambda: ir(PLAN), lambda: ir(IMPORTAR))),
+            MATERIAL: lambda: material.build(st, lambda: ir(MATERIAL), lambda pid: abrir_plan(pid)),
             REPASO: lambda: repaso.build(st),
             ESTUDIAR: lambda: estudio.build(st),
-            PLANES: lambda: planes.build(st, lambda: mostrar_app(PLANES), mostrar_login, lambda: ir(IMPORTAR)),
-            IMPORTAR: lambda: importar.build(st, lambda: ir(PLAN)),
+            PLANES: lambda: planes.build(st, lambda: mostrar_app(PLANES), mostrar_login),
+            IMPORTAR: lambda: importar.build(st, lambda: abrir_plan(st.plan_id)),
             METRICAS: lambda: stats.build(st),
             SINCRONIZAR: lambda: sincronizar.build(st, lambda: ir(SINCRONIZAR)),
-            ASISTENTE: lambda: asistente.build(st, lambda: ir(PLAN), lambda: ir(OWEE)),
+            ASISTENTE: lambda: asistente.build(st, lambda: abrir_plan(st.plan_id), lambda: ir(OWEE)),
+            SPRINT: lambda: sprint.build(st, lambda nombre: ir({"material": MATERIAL, "practica": PRACTICA, "retos": RETOS, "estudiar": ESTUDIAR}[nombre])),
+            RETOS: lambda: retos.build(st),
             ESCRITOR: lambda: escritor.build(st, lambda: ir(LECTURAS)),
             ENTREGAS: lambda: entregas.build(st, lambda: ir(PRACTICA)),
             PRACTICA: lambda: practica.build(st, lambda: ir(REPASO)),
@@ -92,11 +98,11 @@ def main(page: ft.Page):
         ETIQ = {HOY: (t("Hoy"), ft.Icons.TODAY), PLAN: (t("Plan"), ft.Icons.SCHOOL),
                 MATERIAL: (t("Material"), ft.Icons.MENU_BOOK), REPASO: (t("Repaso"), ft.Icons.REPLAY)}
 
-        GRUPOS = [(marcar("Estudiar"), (ENTREGAS, ESTUDIAR, PRACTICA)),
-                  (marcar("Planificar"), (ASISTENTE, PLANES, IMPORTAR)),
+        GRUPOS = [(marcar("Estudiar"), (ENTREGAS, ESTUDIAR, PRACTICA, SPRINT, RETOS)),
+                  (marcar("Planificar"), (ASISTENTE, IMPORTAR)),
                   (marcar("Investigar y escribir"), (ESCRITOR, LECTURAS, PREGUNTAR)),
                   (marcar("Idiomas"), (OWEE,)),
-                  (marcar("Datos y ajustes"), (METRICAS, EXPORTAR, SINCRONIZAR, AJUSTES))]
+                  (marcar("Datos y ajustes"), (METRICAS, EXPORTAR, SINCRONIZAR, PLANES, AJUSTES))]
 
         def pantalla_mas():
             """El menú «Más», con las opciones agrupadas por lo que se quiere hacer."""
@@ -110,6 +116,15 @@ def main(page: ft.Page):
                                           trailing=ft.Icon(ft.Icons.CHEVRON_RIGHT), on_click=lambda _, i=i: ir(i)) for i in presentes]
             return ft.Column([ft.Text(t("Más"), theme_style=ft.TextThemeStyle.HEADLINE_SMALL), *filas],
                              spacing=2, scroll=ft.ScrollMode.AUTO, expand=True)
+
+        def abrir_plan(plan_id):
+            """Muestra el temario completo de ese plan (y lo deja como el plan activo)."""
+            st.plan_id, st.plan_abierto = plan_id, True
+            ir(PLAN)
+
+        def estudiar_tema(plan_id, tema_id, titulo):
+            st.plan_id, st.tema_id, st.tema_titulo = plan_id, tema_id, titulo
+            ir(ESTUDIAR)
 
         def seleccionar(i):
             k = PRINCIPALES.index(i) if i in PRINCIPALES else len(PRINCIPALES)
@@ -128,6 +143,8 @@ def main(page: ft.Page):
 
         def al_cambiar(e):
             k = e.control.selected_index
+            if k < len(PRINCIPALES) and PRINCIPALES[k] == PLAN:
+                st.plan_abierto = False        # tocar «Plan» lleva siempre a «Mis estudios»
             ir(PRINCIPALES[k]) if k < len(PRINCIPALES) else ir_mas()
 
         rail = ft.NavigationRail(
@@ -170,7 +187,7 @@ def main(page: ft.Page):
         if vista is not None:      # p. ej. tras cambiar de idioma: volver a la misma pantalla
             ir(vista)
         else:
-            ir(HOY) if st.plan_id else ir_mas()
+            ir(HOY)        # sin estudio propio, «Hoy» te guía: crear tu plan o importarlo (Owee es opcional)
         abrir_enlace()   # si la app se abrió desde un QR
 
     if repo.hay_claves(st.conn):

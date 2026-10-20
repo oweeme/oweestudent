@@ -287,7 +287,7 @@ def repasar_tarjeta(conn, tarjeta_id, calidad):
     conn.execute("""UPDATE tarjetas SET repeticiones=repeticiones+1,intervalo_dias=?,proximo_repaso=?,
                     estabilidad=?,dificultad_fsrs=?,ultimo_repaso=? WHERE id=?""",
                  (e["intervalo"], e["proximo"], e["estabilidad"], e["dificultad"], e["ultimo"], tarjeta_id))
-    conn.execute("INSERT INTO repasos_log(tema_id,tipo,calidad) VALUES (?,?,?)", (k["tema_id"], "tarjeta", calidad))
+    conn.execute("INSERT INTO repasos_log(tema_id,tipo,calidad,tarjeta_id) VALUES (?,?,?,?)", (k["tema_id"], "tarjeta", calidad, tarjeta_id))
     conn.commit()
 
 

@@ -58,7 +58,7 @@ def build(st):
         st.page.update()
 
     feedback = ft.Text("", selectable=True)
-    apuntes = ft.TextField(label=t("Tus apuntes o material del tema (pega texto; usa **negritas** para términos clave)"),
+    apuntes = ft.TextField(label=t("Tus apuntes o material del tema (pega texto; usa **negritas** o {{...}} para los huecos)"),
                            multiline=True, min_lines=4, max_lines=10)
     q_manual, r_manual = ft.TextField(label=t("Pregunta")), ft.TextField(label=t("Respuesta"))
     info_tj = ft.Text("")
@@ -74,6 +74,16 @@ def build(st):
         n = repo.crear_tarjetas(st.conn, st.tema_id, tj.desde_apuntes(apuntes.value), "apuntes")
         info_tj.value = tn(n, "{n} tarjeta creada (sin IA). Se repasa en «Repaso».", "{n} tarjetas creadas (sin IA). Se repasan en «Repaso».") if n else \
             t("No detecté definiciones. Usa el formato «Término: explicación» o **negritas**.")
+        st.page.update()
+
+    def tj_huecos(_):
+        if not _tema_ok():
+            return
+        pares = tj.huecos_automaticos(apuntes.value)
+        n = repo.crear_tarjetas(st.conn, st.tema_id, pares, "huecos")
+        info_tj.value = tn(n, "{n} tarjeta con hueco creada. Revísala: tapé la palabra clave de cada frase.",
+                           "{n} tarjetas con huecos creadas. Revísalas: tapé la palabra clave de cada frase.") if n else \
+            t("No encontré frases adecuadas. Escribe frases completas o marca los huecos con {{...}}.")
         st.page.update()
 
     def tj_ia(_):
@@ -131,6 +141,7 @@ def build(st):
         ft.Divider(), resumen, ft.Text(t("¿Qué tan bien lo recordaste? (0 nada – 5 perfecto)")), calidad,
         ft.Divider(), ft.Text(t("Tarjetas de repaso (tú creas las preguntas)"), weight=ft.FontWeight.BOLD),
         apuntes, ft.Row([ft.ElevatedButton(t("Crear tarjetas de mis apuntes"), icon=ft.Icons.STYLE, on_click=tj_offline),
+                         ft.OutlinedButton(t("Con huecos automáticos"), on_click=tj_huecos),
                          ft.OutlinedButton(t("✨ Con IA"), on_click=tj_ia)], wrap=True),
         ft.Row([q_manual, r_manual], wrap=True), ft.TextButton(t("＋ Añadir tarjeta manual"), on_click=tj_manual), info_tj,
         ft.Divider(),

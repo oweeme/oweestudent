@@ -162,14 +162,18 @@ def tarjetas_del_alcance(conn, perfil_id: int, plan_id: int | None = None, tema_
 
 
 def preparar_simulacro(conn, perfil_id: int, plan_id: int | None = None, tema_id: int | None = None, n: int = 10,
-                       tipo: str = "mixto", semilla: int | None = None) -> list[Pregunta]:
+                       tipo: str = "mixto", semilla: int | None = None, ids: list[int] | None = None) -> list[Pregunta]:
     """Examen con tus propias tarjetas. `tipo`: «opciones» (opción múltiple), «abierta» (te corriges tú) o «mixto».
     Las de opción múltiple usan como distractores las respuestas de otras tarjetas; si no hay suficientes, la
-    pregunta queda abierta."""
+    pregunta queda abierta. Con `ids` el examen se limita a esas tarjetas (un refuerzo de tus puntos débiles)."""
     rng = random.Random(semilla)
-    tarjetas = list(tarjetas_del_alcance(conn, perfil_id, plan_id, tema_id))
-    rng.shuffle(tarjetas)
-    todas = [k["respuesta"] for k in tarjetas]
+    todas_las = list(tarjetas_del_alcance(conn, perfil_id, plan_id, tema_id))
+    todas = [k["respuesta"] for k in todas_las]                      # los distractores salen de todo el alcance
+    tarjetas = [k for k in todas_las if k["id"] in set(ids)] if ids is not None else todas_las
+    if ids is not None:
+        tarjetas.sort(key=lambda k: ids.index(k["id"]))               # el refuerzo empieza por lo que más fallas
+    else:
+        rng.shuffle(tarjetas)
     out = []
     for i, k in enumerate(tarjetas[:max(1, n)]):
         multiple = tipo == "opciones" or (tipo == "mixto" and i % 2 == 0)

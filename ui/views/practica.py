@@ -5,6 +5,7 @@ import flet as ft
 
 from database import repo
 from engine import ai
+from engine import errores
 from engine import nivel as niveles
 from engine import material as mat
 from engine import practica as pr
@@ -15,7 +16,8 @@ NOMBRES_TIPO = {"recuperacion": marcar("Recuperación libre"), "feynman": marcar
 FUENTES = {"tarjetas": marcar("Mis tarjetas de este tema"), "material": marcar("Una página de un archivo"),
            "lectura": marcar("La ficha de una lectura"), "texto": marcar("Un texto que pego")}
 TIPOS_SIMULACRO = {"mixto": marcar("Mixto"), "opciones": marcar("Opción múltiple"), "abierta": marcar("Respuesta abierta")}
-ALCANCES = {"tema": marcar("Este tema"), "plan": marcar("Esta asignatura"), "todas": marcar("Todas mis asignaturas")}
+ALCANCES = {"tema": marcar("Este tema"), "plan": marcar("Esta asignatura"), "todas": marcar("Todas mis asignaturas"),
+            "debiles": marcar("Mis puntos débiles")}
 
 
 def _lista(titulo, items, color=None):
@@ -34,6 +36,7 @@ def build(st, ir_a_repaso=lambda: None):
         return ft.Text(t("Esta asignatura aún no tiene temas. Añade alguno en «Plan»."))
     aviso = ft.Text("")
     pref = niveles.ajustes(st.nivel())
+    compartido = {"refuerzo": None, "tabs": None}      # el botón de «Puntos débiles» arranca un simulacro de refuerzo
 
     def msg(texto, error=False):
         aviso.value, aviso.color = texto, ft.Colors.RED_300 if error else ft.Colors.GREEN_300
@@ -41,7 +44,7 @@ def build(st, ir_a_repaso=lambda: None):
 
     def selector_tema():
         valor = st.tema_id if st.tema_id in [i for i, _ in temas] else temas[0][0]
-        return ft.Dropdown(label=t("Tema"), value=str(valor), width=360, options=[ft.dropdown.Option(str(i), x) for i, x in temas])
+        return ft.Dropdown(label=t("Tema"), value=str(valor), width=320, options=[ft.dropdown.Option(str(i), x) for i, x in temas])
 
     def historial(tipo):
         filas = pr.historial(c, st.plan_id, tipo, 5)
@@ -251,8 +254,11 @@ def build(st, ir_a_repaso=lambda: None):
 
         def empezar(_):
             a = alcance.value
+            ids = errores.ids_de_refuerzo(c, st.perfil_id, st.plan_id, int(n_preg.value)) if a == "debiles" else None
+            if a == "debiles" and not ids:
+                return msg(t("Aún no hay suficientes repasos para saber cuáles son tus puntos débiles."), True)
             preguntas = pr.preparar_simulacro(c, st.perfil_id, None if a == "todas" else st.plan_id,
-                                              int(tema.value) if a == "tema" else None, int(n_preg.value), tipo.value)
+                                              int(tema.value) if a == "tema" else None, int(n_preg.value), tipo.value, ids=ids)
             if not preguntas:
                 return msg(t("No hay tarjetas para examinarte. Crea tarjetas en «Estudiar» o en «Material»."), True)
             aviso.value = ""
@@ -347,10 +353,51 @@ def build(st, ir_a_repaso=lambda: None):
                         ft.OutlinedButton(t("Ir a Repaso"), icon=ft.Icons.STYLE, on_click=lambda _: ir_a_repaso())], wrap=True)]
             st.page.update()
 
+        def refuerzo():
+            alcance.value = "debiles"
+            empezar(None)
+
+        compartido["refuerzo"] = refuerzo
         inicio()
+        return cuerpo
+
+    # ---------- 4 · puntos débiles (diario de errores) ----------
+    def pestana_debiles():
+        cuerpo = ft.Column(spacing=8, scroll=ft.ScrollMode.AUTO, expand=True)
+        debiles = errores.puntos_debiles(c, st.perfil_id, st.plan_id)
+        dificiles = errores.tarjetas_dificiles(c, st.perfil_id, st.plan_id)
+
+        def lanzar(_):
+            compartido["tabs"].selected_index = 2
+            st.page.update()
+            compartido["refuerzo"]()
+
+        cuerpo.controls = [ft.Text(t("Lo que más conviene estudiar: aquello que fallas. Se calcula con tus repasos y prácticas de los últimos meses."), size=13)]
+        if not debiles and not dificiles:
+            cuerpo.controls.append(ft.Text(t("Aún no hay suficientes repasos para saber cuáles son tus puntos débiles. Repasa unos días y vuelve."), color=ft.Colors.OUTLINE))
+        if debiles:
+            cuerpo.controls += [ft.Text(t("Temas que más fallas"), weight=ft.FontWeight.BOLD, size=13)]
+            for d in debiles:
+                cuerpo.controls += [
+                    ft.Text(f"{d['tema']} · {d['plan']}", size=13),
+                    ft.ProgressBar(value=min(1, d["tasa_fallo"]), color=ft.Colors.RED_300),
+                    ft.Text(t("{p}% de fallos en {n} repasos", p=round(d["tasa_fallo"] * 100), n=d["repasos"]) +
+                            (" · " + t("práctica: {p}%", p=d["practica"]) if d["practica"] is not None else ""), size=11, color=ft.Colors.OUTLINE)]
+        if dificiles:
+            cuerpo.controls += [ft.Text(t("Tarjetas que más te cuestan"), weight=ft.FontWeight.BOLD, size=13)]
+            for d in dificiles[:8]:
+                cuerpo.controls += [ft.Container(ft.Column([
+                    texto_tarjeta(d["pregunta"], size=14), ft.Text(t("{a} fallos en {b} repasos", a=d["fallos"], b=d["repasos"]), size=11, color=ft.Colors.RED_300)],
+                    spacing=2), padding=8, border_radius=8, border=ft.border.all(1, ft.Colors.OUTLINE_VARIANT))]
+        if debiles or dificiles:
+            cuerpo.controls.append(ft.ElevatedButton(t("Hacer un refuerzo de mis puntos débiles"), icon=ft.Icons.FITNESS_CENTER, on_click=lanzar))
         return cuerpo
 
     abiertas = {"recuperacion": pestana_recuperacion, "feynman": pestana_feynman, "simulacro": pestana_simulacro}
     tabs = ft.Tabs(selected_index=0, expand=1, tabs=[ft.Tab(text=t(v), content=ft.Container(abiertas[k](), padding=ft.padding.only(top=12)))
-                                                      for k, v in NOMBRES_TIPO.items()])
+                                                      for k, v in NOMBRES_TIPO.items()] +
+                   [ft.Tab(text=t("Puntos débiles"), content=ft.Container(pestana_debiles(), padding=ft.padding.only(top=12)))])
+    compartido["tabs"] = tabs
+    if st.pestana_practica is not None:        # llegamos desde un paso del sprint
+        tabs.selected_index, st.pestana_practica = st.pestana_practica, None
     return ft.Column([ft.Text(t("Práctica activa"), theme_style=ft.TextThemeStyle.HEADLINE_SMALL), aviso, tabs], spacing=8, expand=True)

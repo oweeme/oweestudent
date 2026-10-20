@@ -18,9 +18,12 @@ def build(st, ir_a_plan):
                           value=str(st.carpeta_destino) if st.carpeta_destino else "ninguna",
                           options=[ft.dropdown.Option("ninguna", t("(Sin carpeta)"))] + [
                               ft.dropdown.Option(str(k["id"]), k["nombre"]) for k in repo.carpetas(st.conn, st.perfil_id)])
-    destino = ft.RadioGroup(value="agregar" if hay_plan else "nuevo", content=ft.Column([
+    activo = st.conn.execute("SELECT titulo FROM planes WHERE id=?", (st.plan_id,)).fetchone() if hay_plan else None
+    # Por defecto SIEMPRE un plan nuevo (en la carpeta elegida): sumar a un plan existente es una decisión explícita.
+    destino = ft.RadioGroup(value="nuevo", content=ft.Column([
         ft.Radio(value="nuevo", label=t("Crear un plan nuevo")),
-        ft.Radio(value="agregar", label=t("Agregar al plan activo"), disabled=not hay_plan),
+        ft.Radio(value="agregar", label=t("Agregar al plan «{titulo}»", titulo=activo["titulo"]) if activo else t("Agregar al plan activo"),
+                 disabled=not hay_plan),
     ]))
     estado = ft.Text("", color=ft.Colors.RED_300)
     picker = ft.FilePicker()
@@ -35,6 +38,7 @@ def build(st, ir_a_plan):
             estado.value = t("Error: {ex}", ex=ex)
             st.page.update()
             return
+        st.carpeta_destino = None
         st.toast(t("Importado"))
         ir_a_plan()
 

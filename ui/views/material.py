@@ -5,23 +5,24 @@ from pathlib import Path
 import flet as ft
 
 from database import repo
-from engine import ai, material as mat, tarjetas as tj
+from engine import ai, estudios as estudios_motor, material as mat, tarjetas as tj
 from i18n import marcar, t, tn
 from ui.components.widgets import confirmar, dialogo
 
+TIPOS_PLAN = ("md", "txt", "pdf", "docx")
 EXT = ["pdf", "docx", "xlsx", "csv", "txt", "md"]
 TIPOS_NOTA = {"conclusion": marcar("Conclusión"), "cita": marcar("Cita"), "duda": marcar("Duda"), "idea": marcar("Idea")}
 ICONOS = {"pdf": ft.Icons.PICTURE_AS_PDF, "docx": ft.Icons.DESCRIPTION, "xlsx": ft.Icons.TABLE_CHART,
           "csv": ft.Icons.TABLE_CHART, "txt": ft.Icons.ARTICLE, "md": ft.Icons.ARTICLE}
 
 
-def build(st, recargar):
+def build(st, recargar, ir_plan=lambda pid: None):
     if not st.plan_id:
         return ft.Text(t("Primero crea o elige una asignatura en «Planes»."))
     c = st.conn
     plan = c.execute("SELECT titulo FROM planes WHERE id=?", (st.plan_id,)).fetchone()
     cuerpo = ft.Column(spacing=10, scroll=ft.ScrollMode.AUTO, expand=True)
-    est = {"mid": None, "pag": 1, "reenlazar": None}
+    est = {"mid": None, "pag": 1, "reenlazar": None, "oferta": None}
     aviso = ft.Text("")
 
     def msg(texto, error=False):
@@ -54,7 +55,9 @@ def build(st, recargar):
             otro = repo.material_por_hash(c, h)
             destino = path if solo_enlazar.value else mat.copiar_a_app(path, h)
             nombre = Path(path).name
-            repo.agregar_material(c, st.plan_id, Path(path).stem, mat.tipo_de(path), h, nombre, destino, os.path.getsize(path))
+            nuevo = repo.agregar_material(c, st.plan_id, Path(path).stem, mat.tipo_de(path), h, nombre, destino, os.path.getsize(path))
+            if mat.tipo_de(path) in TIPOS_PLAN and estudios_motor.parece_plan(destino):
+                est["oferta"] = nuevo        # tiene módulos y temas: ofrecer convertirlo en un plan
             msg(t("Adjuntado ✅") + (t(" (ya lo tenías en otra asignatura: se reutilizó el mismo archivo)") if otro and not solo_enlazar.value else ""))
             mostrar_lista()
         except Exception as ex:
@@ -80,6 +83,16 @@ def build(st, recargar):
         confirmar(st.page, t("¿Quitar «{titulo}» y sus notas? (el archivo original no se borra)", titulo=m["titulo"]),
                   lambda: (repo.borrar_material(c, m["id"]), mostrar_lista()))
 
+    def convertir_en_plan(m):
+        plan = c.execute("SELECT carpeta_id FROM planes WHERE id=?", (st.plan_id,)).fetchone()
+        try:
+            pid = estudios_motor.plan_desde_material(c, m, st.perfil_id, plan["carpeta_id"] if plan else None)
+        except Exception as ex:
+            return msg(t("No se pudo crear el plan: {ex}", ex=ex), True)
+        est["oferta"] = None
+        st.toast(t("Plan creado"))
+        ir_plan(pid)
+
     def mostrar_lista():
         est["mid"] = None
         filas = []
@@ -95,9 +108,15 @@ def build(st, recargar):
                 trailing=ft.PopupMenuButton(items=[
                     ft.PopupMenuItem(text=t("Leer") if ok else t("Vincular el archivo aquí"),
                                      on_click=(lambda _, i=m["id"]: abrir(i)) if ok else (lambda _, i=m["id"]: pedir_archivo(i))),
+                    *([ft.PopupMenuItem(text=t("Convertir en plan de estudio"), on_click=lambda _, m=m: convertir_en_plan(m))]
+                      if ok and m["tipo"] in TIPOS_PLAN else []),
                     ft.PopupMenuItem(text=t("Quitar"), on_click=lambda _, m=m: quitar(m))])))
+        oferta = c.execute("SELECT * FROM materiales WHERE id=?", (est["oferta"],)).fetchone() if est["oferta"] else None
+        banner = [ft.Container(padding=10, border_radius=8, bgcolor=ft.Colors.SECONDARY_CONTAINER, content=ft.Row([
+            ft.Text(t("«{titulo}» parece un plan de estudios (tiene módulos y temas).", titulo=oferta["titulo"]), expand=True, size=13),
+            ft.ElevatedButton(t("Crear el plan"), icon=ft.Icons.LIST_ALT, on_click=lambda _, m=oferta: convertir_en_plan(m))], wrap=True))] if oferta else []
         cuerpo.controls = [
-            ft.Text(t("Material · {plan}", plan=plan["titulo"]), theme_style=ft.TextThemeStyle.HEADLINE_SMALL), aviso,
+            ft.Text(t("Material · {plan}", plan=plan["titulo"]), theme_style=ft.TextThemeStyle.HEADLINE_SMALL), aviso, *banner,
             ft.Text(t("Adjunta tus libros, PDFs, Word, Excel o CSV. Un mismo archivo nunca se duplica, aunque lo adjuntes en varias asignaturas. Lee dentro de la app, guarda conclusiones y crea tarjetas."), size=13),
             ft.ElevatedButton(t("＋ Adjuntar archivo"), icon=ft.Icons.ATTACH_FILE,
                               on_click=lambda _: picker.pick_files(allowed_extensions=EXT)),
@@ -217,18 +236,23 @@ def build(st, recargar):
                             options=[ft.dropdown.Option("ninguno", t("(ninguno)"))] + op())
         cabecera = ft.Switch(label=t("La primera fila es cabecera"), value=True)
         ambos = ft.Switch(label=t("Crear también respuesta → pregunta"), value=False)
+        produccion = ft.Switch(label=t("Tarjetas de producción: escribir la palabra al repasar"), value=False)
 
         def ok(_v):
             try:
                 _, filas_h = mat.leer_tabla(m["ruta"], int(hoja.value or 0))
                 pares = mat.a_tarjetas(filas_h, int(frente.value), int(reverso.value),
                                        None if extra.value in (None, "ninguno") else int(extra.value),
-                                       cabecera.value, ambos.value)
-                n = repo.crear_tarjetas(c, m["tema_id"] or repo.tema_para_tarjetas(c, st.plan_id), pares, "excel")
+                                       cabecera.value, ambos.value and not produccion.value)
+                tema_dest = m["tema_id"] or repo.tema_para_tarjetas(c, st.plan_id)
+                n = repo.crear_tarjetas(c, tema_dest, pares, "excel")
+                if produccion.value:       # el sentido «significado → palabra» se repasa escribiendo la palabra
+                    inversas = mat.a_tarjetas(filas_h, int(reverso.value), int(frente.value), None, cabecera.value, False)
+                    n += repo.crear_tarjetas(c, tema_dest, inversas, "produccion")
                 msg(tn(n, "{n} tarjeta creada (las repetidas se omitieron). Repásala en «Repaso».", "{n} tarjetas creadas (las repetidas se omitieron). Repásalas en «Repaso»."))
             except Exception as ex:
                 msg(t("No se pudo importar: {ex}", ex=ex), True)
-        dialogo(st.page, t("Importar vocabulario"), [hoja, frente, reverso, extra, cabecera, ambos], ok, t("Crear tarjetas"))
+        dialogo(st.page, t("Importar vocabulario"), [hoja, frente, reverso, extra, cabecera, ambos, produccion], ok, t("Crear tarjetas"))
 
     if st.abrir_material:          # llegamos desde una cita: abrir el documento en esa página
         est["mid"], est["pag"] = st.abrir_material

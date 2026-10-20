@@ -82,7 +82,7 @@ def test_la_pantalla_de_practica_se_construye_en_todos_los_idiomas(st, codigo):
     i18n.fijar_idioma(codigo)
     cuerpo = practica.build(st)
     tabs = next(c for c in _todos(cuerpo, ft.Tabs))
-    assert len(tabs.tabs) == 3
+    assert len(tabs.tabs) == 4
 
 
 def test_sin_asignatura_o_sin_temas_avisa(st):

@@ -10,8 +10,14 @@ TIPOS_RECURSO = (marcar("url"), marcar("libro"), marcar("herramienta"), marcar("
 def build(st, ir_a_estudio, recargar):
     c = st.conn
     if not st.plan_id:
+        st.plan_abierto = False
         return ft.Text(t("Aún no hay plan. Ve a «Planes» para crear uno o a «Importar»."))
     plan = c.execute("SELECT * FROM planes WHERE id=?", (st.plan_id,)).fetchone()
+    carpeta = c.execute("SELECT nombre FROM carpetas WHERE id=?", (plan["carpeta_id"],)).fetchone() if plan["carpeta_id"] else None
+
+    def volver(_=None):
+        st.plan_abierto = False
+        recargar()
     prog = ft.Column()
     prog.controls = [barra_progreso(repo.progreso(c, st.plan_id), t("Progreso general"))]
 
@@ -110,6 +116,9 @@ def build(st, ir_a_estudio, recargar):
         rango = t(" (meses {a}-{b})", a=u["mes_ini"], b=u["mes_fin"]) if u["mes_ini"] else ""
         bloques.append(ft.ExpansionTile(title=ft.Text(u["titulo"] + rango), controls=filas))
 
-    return ft.Column([ft.Text(plan["titulo"], theme_style=ft.TextThemeStyle.HEADLINE_SMALL), prog, *bloques,
+    cabecera = ft.Row([ft.IconButton(ft.Icons.ARROW_BACK, tooltip=t("Mis estudios"), on_click=volver),
+                       ft.Column([ft.Text((f"📁 {carpeta['nombre']}" if carpeta else t("Mis estudios")), size=12),
+                                  ft.Text(plan["titulo"], theme_style=ft.TextThemeStyle.HEADLINE_SMALL)], spacing=0, expand=True)])
+    return ft.Column([cabecera, prog, *bloques,
                       ft.ElevatedButton(t("＋ Nueva unidad / módulo"), on_click=lambda _: add_unidad())],
                      spacing=8, scroll=ft.ScrollMode.AUTO, expand=True)

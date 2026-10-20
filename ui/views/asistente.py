@@ -6,7 +6,7 @@ from database import repo
 from engine import nivel as niveles
 from engine import plantillas as pl
 from i18n import marcar, t
-from ui.components.widgets import tarjeta
+from ui.components.widgets import ancho_dialogo, tarjeta
 
 ETIQUETA_OBJETIVO = {
     "asignatura": marcar("¿Qué asignatura o examen preparas?"), "idioma": marcar("¿Qué idioma quieres aprender?"),
@@ -50,7 +50,7 @@ def build(st, ir_a_plan, ir_a_owee=lambda: None):
     nivel_tec = ft.Dropdown(label=t("Tu nivel actual"), width=200, value="principiante",
                             options=[ft.dropdown.Option(k, t(v)) for k, v in NIVELES_TEC.items()])
     proyecto = ft.TextField(label=t("¿Qué quieres construir con ello? (tu proyecto)"))
-    etapa = ft.Dropdown(label=t("¿En qué etapa estás?"), width=420, value="inicio",
+    etapa = ft.Dropdown(label=t("¿En qué etapa estás?"), width=320, value="inicio",
                         options=[ft.dropdown.Option(k, t(v)) for k, v in ETAPAS.items()])
     lecturas = ft.TextField(label=t("Lecturas por semana"), value="3", width=160)
 
@@ -126,7 +126,7 @@ def build(st, ir_a_plan, ir_a_owee=lambda: None):
 
     def mostrar_texto(md):
         dlg = ft.AlertDialog(title=ft.Text(t("Plan en texto")), content=ft.Column([ft.Text(md, selectable=True, size=12)],
-                                                                                 scroll=ft.ScrollMode.AUTO, width=520, height=420),
+                                                                                 scroll=ft.ScrollMode.AUTO, width=ancho_dialogo(st.page, 520), height=420),
                              actions=[ft.TextButton(t("Cerrar"), on_click=lambda _: st.page.close(dlg))])
         st.page.open(dlg)
 

@@ -30,6 +30,11 @@ def tile_recurso(r):
                        subtitle=ft.Text(sub, size=12) if sub else None)
 
 
+def ancho_dialogo(page, ideal: int = 380) -> int:
+    """Ancho de un diálogo que cabe también en un móvil (deja margen a los lados)."""
+    return int(max(240, min(ideal, (getattr(page, "width", None) or 800) - 80)))
+
+
 def dialogo(page, titulo, campos, on_ok, texto_ok=None):
     """Diálogo con TextFields; on_ok recibe la lista de valores (str)."""
     texto_ok = texto_ok or t("Guardar")
@@ -38,7 +43,7 @@ def dialogo(page, titulo, campos, on_ok, texto_ok=None):
         vals = [c.value or "" for c in campos]
         page.close(dlg)
         on_ok(vals)
-    dlg = ft.AlertDialog(modal=True, title=ft.Text(titulo), content=ft.Column(campos, tight=True, width=380),
+    dlg = ft.AlertDialog(modal=True, title=ft.Text(titulo), content=ft.Column(campos, tight=True, width=ancho_dialogo(page)),
                          actions=[ft.TextButton(t("Cancelar"), on_click=lambda _: page.close(dlg)),
                                   ft.ElevatedButton(texto_ok, on_click=ok)])
     page.open(dlg)
