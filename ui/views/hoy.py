@@ -12,7 +12,7 @@ DIAS = [marcar("Lunes"), marcar("Martes"), marcar("Miércoles"), marcar("Jueves"
         marcar("Sábado"), marcar("Domingo")]
 
 
-def build(st, ir_a_estudio, recargar, ir_repaso=lambda: None):
+def build(st, ir_a_estudio, recargar, ir_repaso=lambda: None, ir_entregas=lambda: None):
     c, hoy = st.conn, date.today()
     dia = DIAS[hoy.weekday()]
     act = [ft.ListTile(dense=True, title=ft.Text(r["actividad"]), subtitle=ft.Text(r["bloque"]),
@@ -47,11 +47,20 @@ def build(st, ir_a_estudio, recargar, ir_repaso=lambda: None):
     meta = repo.meta_semanal(c, st.plan_id)
     hs = repo.horas_semana(c, st.perfil_id)
     n_rev = len(repo.tarjetas_pendientes(c, st.perfil_id)) + len(repo.repasos_pendientes(c, st.perfil_id))
-    return ft.Column([ft.Text(f"{t(dia)} {hoy.isoformat()}", style=ft.TextThemeStyle.HEADLINE_SMALL),
+    prox = repo.proximas_entregas(c, st.perfil_id, 7)
+    from ui.views.entregas import ICONOS, cuando
+    tarjeta_entregas = tarjeta(
+        t("Entregas y exámenes"),
+        *([ft.ListTile(dense=True, leading=ft.Icon(ICONOS[e["tipo"]], size=18, color=ft.Colors.RED_300 if e["dias"] < 0 else ft.Colors.AMBER_400 if e["dias"] <= 1 else None),
+                       title=ft.Text(e["titulo"], size=13), subtitle=ft.Text(f"{e['plan']} · {cuando(e['dias'])}", size=11), on_click=lambda _: ir_entregas())
+           for e in prox[:5]] or [ft.Text(t("Nada para esta semana 🎉"))]),
+        ft.TextButton(t("Ver todas / añadir"), on_click=lambda _: ir_entregas()))
+    return ft.Column([ft.Text(f"{t(dia)} {hoy.isoformat()}", theme_style=ft.TextThemeStyle.HEADLINE_SMALL),
                       tarjeta(t("Esta semana"), barra_progreso(min(1, hs / meta), t("{h:.1f} de {meta:g} h ·", h=hs, meta=meta)),
                               ft.TextButton(tn(n_rev, "🔁 {n} repaso pendiente hoy → empezar", "🔁 {n} repasos pendientes hoy → empezar")
                                             if n_rev else t("🔁 Repasos al día ✅"),
                                             on_click=lambda _: ir_repaso())),
+                      tarjeta_entregas,
                       tarjeta(t("Cronograma de hoy"), *(act or [ft.Text(t("Sin cronograma importado"))]),
                               ft.TextButton(t("＋ Añadir al cronograma"), on_click=add_crono)),
                       tarjeta(t("Temas programados / atrasados"), *tt,

@@ -97,7 +97,7 @@ def build(st, recargar):
                                      on_click=(lambda _, i=m["id"]: abrir(i)) if ok else (lambda _, i=m["id"]: pedir_archivo(i))),
                     ft.PopupMenuItem(text=t("Quitar"), on_click=lambda _, m=m: quitar(m))])))
         cuerpo.controls = [
-            ft.Text(t("Material · {plan}", plan=plan["titulo"]), style=ft.TextThemeStyle.HEADLINE_SMALL), aviso,
+            ft.Text(t("Material · {plan}", plan=plan["titulo"]), theme_style=ft.TextThemeStyle.HEADLINE_SMALL), aviso,
             ft.Text(t("Adjunta tus libros, PDFs, Word, Excel o CSV. Un mismo archivo nunca se duplica, aunque lo adjuntes en varias asignaturas. Lee dentro de la app, guarda conclusiones y crea tarjetas."), size=13),
             ft.ElevatedButton(t("＋ Adjuntar archivo"), icon=ft.Icons.ATTACH_FILE,
                               on_click=lambda _: picker.pick_files(allowed_extensions=EXT)),
@@ -184,7 +184,7 @@ def build(st, recargar):
                                        on_click=lambda _: dialogo_vocabulario(m))]
         cuerpo.controls = [
             ft.Row([ft.IconButton(ft.Icons.ARROW_BACK, tooltip=t("Volver al material"), on_click=lambda _: mostrar_lista()),
-                    ft.Text(m["titulo"], style=ft.TextThemeStyle.TITLE_MEDIUM, expand=True)]), aviso,
+                    ft.Text(m["titulo"], theme_style=ft.TextThemeStyle.TITLE_MEDIUM, expand=True)]), aviso,
             ft.Row([ft.IconButton(ft.Icons.NAVIGATE_BEFORE, on_click=lambda _: ir(est["pag"] - 1), disabled=est["pag"] <= 1),
                     pag_campo, ft.Text(t("de {total}", total=total)),
                     ft.IconButton(ft.Icons.NAVIGATE_NEXT, on_click=lambda _: ir(est["pag"] + 1), disabled=est["pag"] >= total),
@@ -230,5 +230,10 @@ def build(st, recargar):
                 msg(t("No se pudo importar: {ex}", ex=ex), True)
         dialogo(st.page, t("Importar vocabulario"), [hoja, frente, reverso, extra, cabecera, ambos], ok, t("Crear tarjetas"))
 
-    mostrar_lista()
+    if st.abrir_material:          # llegamos desde una cita: abrir el documento en esa página
+        est["mid"], est["pag"] = st.abrir_material
+        st.abrir_material = None
+        mostrar_lector()
+    else:
+        mostrar_lista()
     return cuerpo

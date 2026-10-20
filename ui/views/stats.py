@@ -27,7 +27,7 @@ def build(st):
     n_tj = c.execute("""SELECT COUNT(*) FROM tarjetas k JOIN temas t ON t.id=k.tema_id JOIN unidades u ON u.id=t.unidad_id
         JOIN planes p ON p.id=u.plan_id WHERE p.perfil_id=?""", (st.perfil_id,)).fetchone()[0]
     return ft.Column([
-        ft.Text(t("Métricas"), style=ft.TextThemeStyle.HEADLINE_SMALL),
+        ft.Text(t("Métricas"), theme_style=ft.TextThemeStyle.HEADLINE_SMALL),
         ft.Row([tarjeta(t("🔥 Racha"), ft.Text(tn(repo.racha(c, st.perfil_id), "{n} día", "{n} días"), size=28)),
                 tarjeta(t("⏱ Últimos 7 días"), ft.Text(t("{h:.1f} h", h=repo.horas_semana(c, st.perfil_id)), size=28))], wrap=True),
         tarjeta(t("Retención (últimos 30 días)"),

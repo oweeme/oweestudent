@@ -11,6 +11,7 @@ Si falta una traducción se prueba la cadena de respaldo (p. ej. ruso → inglé
 import locale
 import os
 
+from i18n import owee
 from i18n.catalogos import CATALOGOS
 
 IDIOMA_BASE = "es"
@@ -21,6 +22,7 @@ NOMBRES = {"es": "Español", "en": "English", "de": "Deutsch", "ru": "Русск
 RESPALDO = {"qow": ("en",), "de": ("en",), "ru": ("en",), "zh": ("en",), "ja": ("en",), "en": ()}
 
 _actual = IDIOMA_BASE
+_escritura = False   # Owee: mostrar con glifos Owee Script en vez de romanización
 
 
 def disponibles() -> list[str]:
@@ -37,6 +39,16 @@ def fijar_idioma(codigo: str) -> str:
     global _actual
     _actual = codigo if codigo in disponibles() else IDIOMA_BASE
     return _actual
+
+
+def escritura_owee() -> bool:
+    """True si la interfaz Owee se muestra con la escritura propia (solo tiene efecto en el idioma «qow»)."""
+    return _escritura and _actual == "qow"
+
+
+def fijar_escritura_owee(activa: bool) -> None:
+    global _escritura
+    _escritura = bool(activa)
 
 
 def detectar_sistema() -> str:
@@ -59,7 +71,9 @@ def _normalizar(valor: str) -> str:
 def iniciar() -> str:
     """Aplica el idioma guardado en la configuración, o el del sistema la primera vez."""
     from engine import ai
-    return fijar_idioma(ai.cargar_config().get("idioma") or detectar_sistema())
+    cfg = ai.cargar_config()
+    fijar_escritura_owee(cfg.get("owee_escritura", False))
+    return fijar_idioma(cfg.get("idioma") or detectar_sistema())
 
 
 def indice_plural(codigo: str, n: int) -> int:
@@ -99,7 +113,11 @@ def marcar(texto: str) -> str:
 def t(texto: str, **kw) -> str:
     """Traduce `texto` (en español) al idioma actual y rellena las {variables}."""
     cod, v = _buscar(texto)
-    return _dar_formato(v if isinstance(v, str) else texto, kw)
+    if not isinstance(v, str):
+        return _dar_formato(texto, kw)
+    if cod == "qow" and _escritura:
+        v = owee.a_escritura_con_marcadores(v)
+    return _dar_formato(v, kw)
 
 
 def tn(n, uno: str, otros: str, **kw) -> str:
@@ -110,4 +128,7 @@ def tn(n, uno: str, otros: str, **kw) -> str:
         formas = v
     else:
         formas, cod = (uno, otros), IDIOMA_BASE
-    return _dar_formato(formas[min(indice_plural(cod, n), len(formas) - 1)], kw)
+    forma = formas[min(indice_plural(cod, n), len(formas) - 1)]
+    if cod == "qow" and _escritura:
+        forma = owee.a_escritura_con_marcadores(forma)
+    return _dar_formato(forma, kw)

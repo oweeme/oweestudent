@@ -141,7 +141,7 @@ def build(st, recargar, cerrar_sesion=None, ir_importar=lambda: None):
                       ft.Row([ft.TextButton(t("＋ Asignatura"), on_click=lambda _: nueva_asignatura(None)),
                               ft.TextButton(t("Importar aquí"), on_click=lambda _: destino_importar(None))], wrap=True)]))
     return ft.Column([
-        ft.Text(t("Carpetas y asignaturas"), style=ft.TextThemeStyle.HEADLINE_SMALL),
+        ft.Text(t("Carpetas y asignaturas"), theme_style=ft.TextThemeStyle.HEADLINE_SMALL),
         ft.Text(t("Una carpeta agrupa tus asignaturas (ej. «Máster» → Management, Idiomas, IT; o «3º de secundaria» → Matemática, Ciencias, Historia). Toca una asignatura para activarla."), size=13),
         ft.Row([perfil, ft.OutlinedButton(t("Nuevo perfil"), icon=ft.Icons.PERSON_ADD, on_click=nuevo_perfil),
                 ft.OutlinedButton(t("Clave de este perfil"), icon=ft.Icons.LOCK, on_click=cambiar_clave),

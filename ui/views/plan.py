@@ -72,7 +72,7 @@ def build(st, ir_a_estudio, recargar):
     for u in repo.unidades(c, st.plan_id):
         if u["semestre"] != semestre_prev:
             semestre_prev = u["semestre"]
-            bloques.append(ft.Text(semestre_prev or "", style=ft.TextThemeStyle.TITLE_MEDIUM,
+            bloques.append(ft.Text(semestre_prev or "", theme_style=ft.TextThemeStyle.TITLE_MEDIUM,
                                    color=ft.Colors.BLUE_200))
         filas = []
         for tema in repo.temas(c, u["id"]):
@@ -110,6 +110,6 @@ def build(st, ir_a_estudio, recargar):
         rango = t(" (meses {a}-{b})", a=u["mes_ini"], b=u["mes_fin"]) if u["mes_ini"] else ""
         bloques.append(ft.ExpansionTile(title=ft.Text(u["titulo"] + rango), controls=filas))
 
-    return ft.Column([ft.Text(plan["titulo"], style=ft.TextThemeStyle.HEADLINE_SMALL), prog, *bloques,
+    return ft.Column([ft.Text(plan["titulo"], theme_style=ft.TextThemeStyle.HEADLINE_SMALL), prog, *bloques,
                       ft.ElevatedButton(t("＋ Nueva unidad / módulo"), on_click=lambda _: add_unidad())],
                      spacing=8, scroll=ft.ScrollMode.AUTO, expand=True)

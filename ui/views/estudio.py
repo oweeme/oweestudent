@@ -5,20 +5,23 @@ import flet as ft
 
 from database import repo
 from engine import ai, tarjetas as tj
+from engine import nivel as niveles
 from i18n import marcar, t, tn
 
-FASES = ((marcar("Estudio"), 25), (marcar("Descanso"), 5))   # (nombre, minutos)
+FASES = (marcar("Estudio"), marcar("Descanso"))   # nombres de fase (se traducen al mostrarlos)
 
 
 def build(st):
     """Pomodoro con registro automático + Feynman (escribir antes de repasar)."""
     tema = ft.Text(st.tema_titulo or t("Elige un tema desde «Plan» u «Hoy»"), weight=ft.FontWeight.BOLD)
-    reloj = ft.Text("25:00", size=48)
+    mins_estudio, mins_descanso = niveles.ajustes(st.nivel())["pomodoro"]      # un niño de primaria no estudia 25 min seguidos
+    fases = (("Estudio", mins_estudio), ("Descanso", mins_descanso))
+    reloj = ft.Text(f"{mins_estudio:02d}:00", size=48)
     fase = ft.Text(t("Estudio"))
     corriendo = {"on": False, "gen": 0}
 
     def ciclo(gen):
-        for nombre, mins in FASES:
+        for nombre, mins in fases:
             fase.value = t(nombre)
             for s in range(mins * 60, -1, -1):
                 if not corriendo["on"] or corriendo["gen"] != gen:
@@ -27,8 +30,8 @@ def build(st):
                 st.page.update()
                 time.sleep(1)
             if nombre == "Estudio":
-                repo.registrar_sesion(st.conn, st.tema_id, 25)
-                st.toast(t("Pomodoro registrado (+25 min)"))
+                repo.registrar_sesion(st.conn, st.tema_id, mins_estudio)
+                st.toast(t("Pomodoro registrado (+{n} min)", n=mins_estudio))
         corriendo["on"] = False
 
     def iniciar(_):
@@ -44,7 +47,6 @@ def build(st):
     resumen = ft.TextField(label=t("Explícalo con tus palabras (Feynman / Active Recall)"),
                            multiline=True, min_lines=5)
     calidad = ft.Slider(min=0, max=5, divisions=5, value=3, label="{value}")
-    nota_orig = ft.Text("")
 
     def guardar(_):
         if not st.tema_id or not resumen.value.strip():
@@ -122,7 +124,7 @@ def build(st):
         st.page.update()
 
     return ft.Column([
-        ft.Text(t("Estudiar"), style=ft.TextThemeStyle.HEADLINE_SMALL), tema,
+        ft.Text(t("Estudiar"), theme_style=ft.TextThemeStyle.HEADLINE_SMALL), tema,
         ft.Row([reloj, fase], alignment=ft.MainAxisAlignment.START),
         ft.Row([ft.ElevatedButton(t("Iniciar Pomodoro"), icon=ft.Icons.PLAY_ARROW, on_click=iniciar),
                 ft.OutlinedButton(t("Detener"), icon=ft.Icons.STOP, on_click=parar)]),

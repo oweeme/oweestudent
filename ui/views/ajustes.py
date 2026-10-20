@@ -5,7 +5,7 @@ import flet as ft
 import app_info
 import i18n
 from engine import ai, ia_local, recursos
-from i18n import t
+from i18n import cobertura, fuentes, t
 from ui.components.logo import logo
 from ui.components.widgets import tarjeta
 
@@ -203,8 +203,38 @@ def build(st, recargar, reconstruir=lambda: None):
         ai.guardar_config(idioma=codigo)
         reconstruir()
 
+    falta = fuentes.comando_para_instalar(i18n.idioma())   # chino/japonés en un Linux sin fuente CJK
+    aviso_fuente = ft.Text(t("Tu sistema no tiene una fuente para este idioma y verás cuadros vacíos. Instálala con: {comando}",
+                             comando=falta), color=ft.Colors.AMBER_400, selectable=True, visible=bool(falta))
+
     idioma = ft.Dropdown(label=t("Idioma de la interfaz"), width=260, value=i18n.idioma(), on_change=cambiar_idioma,
                          options=[ft.dropdown.Option(c, i18n.NOMBRES[c]) for c in i18n.disponibles()])
+
+    def cambiar_escritura(e):
+        i18n.fijar_escritura_owee(e.control.value)
+        ai.guardar_config(owee_escritura=bool(e.control.value))
+        reconstruir()
+
+    owee_ajustes = []
+    if i18n.idioma() == "qow":
+        owee_ajustes = [ft.Switch(label=t("Mostrar en escritura Owee (glifos)"), value=i18n.escritura_owee(),
+                                  on_change=cambiar_escritura)]
+        inf = cobertura.informe("qow")
+
+        def copiar_lista(_):
+            st.page.set_clipboard(cobertura.como_tsv(inf["faltan"]))
+            msg(t("Lista copiada: llévala al glosario de Owee (inglés · español)."))
+
+        owee_ajustes_card = tarjeta(
+            t("Cobertura de Owee"),
+            ft.ProgressBar(value=inf["traducidos"] / inf["total"]),
+            ft.Text(t("{a} de {b} textos de la interfaz ya están en Owee. Lo que falta se ve en inglés (nunca se inventan palabras Owee).",
+                      a=inf["traducidos"], b=inf["total"]), size=13),
+            ft.OutlinedButton(t("Copiar lista de textos por traducir"), icon=ft.Icons.COPY, on_click=copiar_lista),
+            ft.ExpansionTile(title=ft.Text(t("Textos que faltan (los más cortos primero)")),
+                             controls=[ft.Text(f"{en}", size=12, selectable=True) for _, en in inf["faltan"][:60]]))
+    else:
+        owee_ajustes_card = None
 
     apariencia = tarjeta(
         t("Apariencia"),
@@ -212,7 +242,7 @@ def build(st, recargar, reconstruir=lambda: None):
                            segments=[ft.Segment(value="dark", label=ft.Text(t("Oscuro")), icon=ft.Icon(ft.Icons.DARK_MODE)),
                                      ft.Segment(value="light", label=ft.Text(t("Claro")), icon=ft.Icon(ft.Icons.LIGHT_MODE)),
                                      ft.Segment(value="system", label=ft.Text(t("Auto")), icon=ft.Icon(ft.Icons.BRIGHTNESS_AUTO))]),
-        idioma)
+        idioma, aviso_fuente, *owee_ajustes)
 
     def abrir(url):
         return lambda _: st.page.launch_url(url)
@@ -225,8 +255,9 @@ def build(st, recargar, reconstruir=lambda: None):
                 ft.OutlinedButton(app_info.EMAIL, icon=ft.Icons.MAIL, on_click=abrir("mailto:" + app_info.EMAIL))],
                wrap=True))
     return ft.Column([
-        ft.Text(t("Ajustes"), style=ft.TextThemeStyle.HEADLINE_SMALL), aviso, tarj_ia,
+        ft.Text(t("Ajustes"), theme_style=ft.TextThemeStyle.HEADLINE_SMALL), aviso, tarj_ia,
         apariencia,
+        *([owee_ajustes_card] if owee_ajustes_card else []),
         acerca,
     ], spacing=12, scroll=ft.ScrollMode.AUTO, expand=True,
         horizontal_alignment=ft.CrossAxisAlignment.STRETCH)

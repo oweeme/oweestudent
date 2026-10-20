@@ -62,6 +62,8 @@ def importar_texto(conn, texto: str, nombre: str = "Plan pegado", inicio: date |
                          (uid, idm["nombre"].split("(")[0].strip(), idm["nombre"], "\n".join(idm["detalles"])))
     for fila in plan["cronograma"]:
         for bloque, act in fila["bloques"].items():
+            if not act.strip(" —-"):      # celda vacía o «—»: no hay actividad
+                continue
             if conn.execute("SELECT 1 FROM cronograma WHERE plan_id=? AND dia=? AND bloque=? AND actividad=?",
                             (plan_id, fila["dia"], bloque, act)).fetchone():
                 continue
@@ -429,3 +431,164 @@ def tema_para_tarjetas(conn, plan_id, nombre="Vocabulario y tarjetas") -> int:
     uid = u["id"] if u else agregar_unidad(conn, plan_id, nombre)
     t = conn.execute("SELECT id FROM temas WHERE unidad_id=? AND titulo=?", (uid, nombre)).fetchone()
     return t["id"] if t else agregar_tema(conn, uid, nombre)
+
+
+# ---------- Lecturas (gestor de lecturas para investigación) ----------
+ESTADOS_LECTURA = ("por_leer", "leyendo", "leido")
+CAMPOS_LECTURA = ("titulo", "autores", "anio", "fuente", "doi", "url", "tipo_bib", "clave_bib", "estado", "prioridad",
+                  "etiquetas", "pregunta", "metodo", "hallazgos", "limitaciones", "utilidad", "cita_clave", "notas",
+                  "material_id")
+
+
+def agregar_lectura(conn, plan_id, titulo, **campos) -> int:
+    """Añade una lectura al plan. Con el mismo DOI (o mismo título y año) ya existente no la duplica: devuelve esa."""
+    titulo = titulo.strip()
+    doi = (campos.get("doi") or "").strip().lower()
+    if doi:
+        r = conn.execute("SELECT id FROM lecturas WHERE plan_id=? AND lower(doi)=?", (plan_id, doi)).fetchone()
+        if r:
+            return r["id"]
+    r = conn.execute("SELECT id FROM lecturas WHERE plan_id=? AND lower(titulo)=? AND COALESCE(anio,0)=COALESCE(?,0)",
+                     (plan_id, titulo.lower(), campos.get("anio"))).fetchone()
+    if r:
+        return r["id"]
+    ks = [k for k in campos if k in CAMPOS_LECTURA and k != "titulo"]
+    cur = conn.execute(f"INSERT INTO lecturas(plan_id,titulo{''.join(',' + k for k in ks)}) VALUES (?,?{',?' * len(ks)})",
+                       [plan_id, titulo] + [campos[k] for k in ks])
+    conn.commit()
+    return cur.lastrowid
+
+
+def lecturas(conn, plan_id, estado=None, etiqueta=None, texto=None):
+    """Lecturas del plan, de la más prioritaria a la menos; filtros opcionales por estado, etiqueta y texto libre."""
+    sql, args = "SELECT * FROM lecturas WHERE plan_id=?", [plan_id]
+    if estado:
+        sql += " AND estado=?"
+        args.append(estado)
+    if texto and texto.strip():
+        sql += " AND (titulo LIKE ? OR autores LIKE ? OR etiquetas LIKE ? OR hallazgos LIKE ?)"
+        args += [f"%{texto.strip()}%"] * 4
+    filas = conn.execute(sql + " ORDER BY CASE estado WHEN 'leyendo' THEN 0 WHEN 'por_leer' THEN 1 ELSE 2 END, "
+                               "prioridad, id", args).fetchall()
+    if etiqueta:
+        filas = [f for f in filas if etiqueta in etiquetas_de(f)]
+    return filas
+
+
+def etiquetas_de(lectura) -> list[str]:
+    return [e.strip() for e in (lectura["etiquetas"] or "").split(",") if e.strip()]
+
+
+def todas_las_etiquetas(conn, plan_id) -> list[str]:
+    return sorted({e for f in conn.execute("SELECT etiquetas FROM lecturas WHERE plan_id=?", (plan_id,)) for e in etiquetas_de(f)})
+
+
+def lectura(conn, lectura_id):
+    return conn.execute("SELECT * FROM lecturas WHERE id=?", (lectura_id,)).fetchone()
+
+
+def editar_lectura(conn, lectura_id, **campos):
+    ks = [k for k in campos if k in CAMPOS_LECTURA]
+    if not ks:
+        return
+    if "estado" in campos:
+        if campos["estado"] not in ESTADOS_LECTURA:
+            raise ValueError("estado de lectura desconocido")
+        if campos["estado"] == "leido" and "fecha_leido" not in campos:
+            conn.execute("UPDATE lecturas SET fecha_leido=COALESCE(fecha_leido, date('now','localtime')) WHERE id=?", (lectura_id,))
+        elif campos["estado"] != "leido":
+            conn.execute("UPDATE lecturas SET fecha_leido=NULL WHERE id=?", (lectura_id,))
+    conn.execute(f"UPDATE lecturas SET {','.join(k + '=?' for k in ks)} WHERE id=?", [campos[k] for k in ks] + [lectura_id])
+    conn.commit()
+
+
+def borrar_lectura(conn, lectura_id):
+    conn.execute("DELETE FROM lecturas WHERE id=?", (lectura_id,))
+    conn.commit()
+
+
+def resumen_lecturas(conn, plan_id) -> dict:
+    """Cuántas por leer / leyendo / leídas, y cuántas leídas en los últimos 7 días."""
+    r = {e: 0 for e in ESTADOS_LECTURA}
+    for f in conn.execute("SELECT estado, COUNT(*) n FROM lecturas WHERE plan_id=? GROUP BY estado", (plan_id,)):
+        r[f["estado"]] = f["n"]
+    r["semana"] = conn.execute("SELECT COUNT(*) FROM lecturas WHERE plan_id=? AND estado='leido' "
+                               "AND fecha_leido>=date('now','localtime','-6 days')", (plan_id,)).fetchone()[0]
+    return r
+
+
+def importar_bibtex(conn, plan_id, texto) -> tuple[int, int]:
+    """Importa referencias BibTeX. Devuelve (nuevas, ya existentes)."""
+    from engine.biblio import leer_bibtex
+    nuevas = repetidas = 0
+    for r in leer_bibtex(texto):
+        antes = conn.execute("SELECT COUNT(*) FROM lecturas WHERE plan_id=?", (plan_id,)).fetchone()[0]
+        agregar_lectura(conn, plan_id, r["titulo"], autores=r["autores"], anio=r["anio"], fuente=r["fuente"], doi=r["doi"],
+                        url=r["url"], tipo_bib=r["tipo"], clave_bib=r["clave"])
+        despues = conn.execute("SELECT COUNT(*) FROM lecturas WHERE plan_id=?", (plan_id,)).fetchone()[0]
+        nuevas, repetidas = nuevas + (despues > antes), repetidas + (despues == antes)
+    return nuevas, repetidas
+
+
+def tarjetas_de_lectura(conn, lectura_id, etiquetas: dict) -> int:
+    """Convierte la ficha en tarjetas de repaso (una por campo con contenido), en el tema «Lecturas» del plan.
+    `etiquetas` = textos de pregunta ya traducidos: {campo: 'plantilla con {cita}'}."""
+    from engine.biblio import citar
+    l = lectura(conn, lectura_id)
+    tema = tema_para_tarjetas(conn, l["plan_id"], "Lecturas")
+    pares = [(etiquetas[k].format(cita=citar(l)), l[k].strip()) for k in etiquetas if (l[k] or "").strip()]
+    return crear_tarjetas(conn, tema, pares, "lectura")
+
+
+# ---------- Entregas y exámenes (colegio, universidad) ----------
+TIPOS_ENTREGA = ("tarea", "examen", "proyecto", "otro")
+
+
+def agregar_entrega(conn, plan_id, titulo, fecha, tipo="tarea", detalle="") -> int:
+    """Una tarea, examen o proyecto con fecha (AAAA-MM-DD o `date`) en una asignatura."""
+    if tipo not in TIPOS_ENTREGA:
+        raise ValueError("tipo de entrega desconocido")
+    fecha = fecha.isoformat() if hasattr(fecha, "isoformat") else date.fromisoformat(str(fecha)).isoformat()
+    cur = conn.execute("INSERT INTO entregas(plan_id,titulo,tipo,fecha,detalle) VALUES (?,?,?,?,?)",
+                       (plan_id, titulo.strip(), tipo, fecha, detalle.strip()))
+    conn.commit()
+    return cur.lastrowid
+
+
+def entregas(conn, perfil_id, plan_id=None, estado=None):
+    """Entregas del perfil (de una asignatura o de todas), con la asignatura y los días que faltan (negativo = vencida)."""
+    sql = """SELECT e.*, p.titulo plan, CAST(julianday(e.fecha) - julianday(date('now','localtime')) AS INTEGER) dias
+             FROM entregas e JOIN planes p ON p.id=e.plan_id WHERE p.perfil_id=?"""
+    args = [perfil_id]
+    if plan_id:
+        sql, args = sql + " AND e.plan_id=?", args + [plan_id]
+    if estado:
+        sql, args = sql + " AND e.estado=?", args + [estado]
+    return conn.execute(sql + " ORDER BY e.estado='hecha', e.fecha, e.id", args).fetchall()
+
+
+def proximas_entregas(conn, perfil_id, dias=7):
+    """Pendientes vencidas o que vencen en los próximos `dias` días (para la pantalla de Hoy)."""
+    return [e for e in entregas(conn, perfil_id, estado="pendiente") if e["dias"] <= dias]
+
+
+def marcar_entrega(conn, entrega_id, hecha: bool, nota=None):
+    conn.execute("UPDATE entregas SET estado=?, nota=COALESCE(?, nota) WHERE id=?",
+                 ("hecha" if hecha else "pendiente", nota, entrega_id))
+    conn.commit()
+
+
+def editar_entrega(conn, entrega_id, titulo=None, fecha=None, tipo=None, detalle=None):
+    actual = conn.execute("SELECT * FROM entregas WHERE id=?", (entrega_id,)).fetchone()
+    if tipo is not None and tipo not in TIPOS_ENTREGA:
+        raise ValueError("tipo de entrega desconocido")
+    f = actual["fecha"] if fecha is None else (fecha.isoformat() if hasattr(fecha, "isoformat") else date.fromisoformat(str(fecha)).isoformat())
+    conn.execute("UPDATE entregas SET titulo=?, fecha=?, tipo=?, detalle=? WHERE id=?",
+                 (actual["titulo"] if titulo is None else titulo.strip(), f, tipo or actual["tipo"],
+                  actual["detalle"] if detalle is None else detalle.strip(), entrega_id))
+    conn.commit()
+
+
+def borrar_entrega(conn, entrega_id):
+    conn.execute("DELETE FROM entregas WHERE id=?", (entrega_id,))
+    conn.commit()

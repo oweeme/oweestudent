@@ -11,7 +11,7 @@ DB_PATH = os.environ.get("OWEE_DB", str(DATOS / "estudios.db"))
 
 # Versión del esquema (PRAGMA user_version). Súbela cuando una migración cambie la estructura:
 # antes de migrar una base más antigua se guarda una copia en la carpeta «respaldos».
-VERSION_ESQUEMA = 1
+VERSION_ESQUEMA = 5   # 2: lecturas · 3: prácticas · 4: entregas y exámenes · 5: escritos (monografías, tesis, libros)
 MAX_RESPALDOS = 5   # copias que se conservan por motivo
 
 SCHEMA = """
@@ -48,6 +48,61 @@ CREATE TABLE IF NOT EXISTS notas_material (
     tipo TEXT DEFAULT 'conclusion',
     texto TEXT NOT NULL,
     creado DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS lecturas (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    plan_id INTEGER REFERENCES planes(id) ON DELETE CASCADE,
+    material_id INTEGER REFERENCES materiales(id) ON DELETE SET NULL,
+    titulo TEXT NOT NULL,
+    autores TEXT, anio INTEGER, fuente TEXT, doi TEXT, url TEXT,
+    tipo_bib TEXT, clave_bib TEXT,
+    estado TEXT CHECK(estado IN ('por_leer','leyendo','leido')) DEFAULT 'por_leer',
+    prioridad INTEGER DEFAULT 2,
+    etiquetas TEXT,
+    pregunta TEXT, metodo TEXT, hallazgos TEXT, limitaciones TEXT, utilidad TEXT, cita_clave TEXT, notas TEXT,
+    fecha_leido DATE,
+    creado DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS practicas (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    plan_id INTEGER REFERENCES planes(id) ON DELETE CASCADE,
+    tema_id INTEGER REFERENCES temas(id) ON DELETE SET NULL,
+    tipo TEXT NOT NULL CHECK(tipo IN ('recuperacion','feynman','simulacro')),
+    puntaje REAL,
+    detalle TEXT,
+    fecha DATE DEFAULT (date('now','localtime')),
+    creado DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS entregas (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    plan_id INTEGER REFERENCES planes(id) ON DELETE CASCADE,
+    titulo TEXT NOT NULL,
+    tipo TEXT NOT NULL CHECK(tipo IN ('tarea','examen','proyecto','otro')) DEFAULT 'tarea',
+    fecha DATE NOT NULL,
+    estado TEXT NOT NULL CHECK(estado IN ('pendiente','hecha')) DEFAULT 'pendiente',
+    nota REAL,
+    detalle TEXT,
+    creado DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS escritos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    plan_id INTEGER REFERENCES planes(id) ON DELETE CASCADE,
+    titulo TEXT NOT NULL,
+    tipo TEXT NOT NULL CHECK(tipo IN ('monografia','ensayo','tesis','libro')) DEFAULT 'monografia',
+    estilo TEXT NOT NULL CHECK(estilo IN ('apa','numerico')) DEFAULT 'apa',
+    autor TEXT,
+    meta_palabras INTEGER DEFAULT 3000,
+    fecha_limite DATE,
+    creado DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS secciones (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    escrito_id INTEGER REFERENCES escritos(id) ON DELETE CASCADE,
+    orden INTEGER DEFAULT 0,
+    titulo TEXT NOT NULL,
+    texto TEXT DEFAULT '',
+    meta_palabras INTEGER DEFAULT 0,
+    notas TEXT DEFAULT ''
 );
 CREATE TABLE IF NOT EXISTS planes (
     perfil_id INTEGER DEFAULT 1,
@@ -145,7 +200,7 @@ CREATE TABLE IF NOT EXISTS notas (
 
 # Tablas que se sincronizan entre equipos (la mezcla usa uid + fecha de modificación)
 TABLAS_SYNC = ["perfiles", "carpetas", "planes", "unidades", "temas", "recursos", "entregables", "metas_idioma",
-               "cronograma", "materiales", "notas_material", "sesiones", "notas", "tarjetas", "repasos_log"]
+               "cronograma", "materiales", "notas_material", "lecturas", "sesiones", "notas", "tarjetas", "repasos_log", "practicas", "entregas", "escritos", "secciones"]
 _AHORA = "strftime('%Y-%m-%dT%H:%M:%f','now')"
 _LEGADO = "2000-01-01T00:00:00.000"  # filas anteriores a la sincronización: cualquier edición real las supera
 
