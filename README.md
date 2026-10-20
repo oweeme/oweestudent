@@ -148,7 +148,7 @@ Android (`flet build apk`) necesita Flutter y el SDK de Android: es más cómodo
 
 Linux empaquetado: el lanzador (`packaging/linux/launcher.sh`) enlaza `libmpv.so.2` como `libmpv.so.1` y, si la app no abre, muestra el motivo y lo guarda en `~/.local/share/oweestudent/ultimo-error.log`. En cada compilación se prueba en un Debian 12 limpio (`packaging/linux/smoke.sh`).
 El icono se genera con `tools/gorro.py` (logo de Oweeme + gorro).
-Publicar: `git tag v0.12.1 && git push --tags` → GitHub Actions compila y adjunta los instaladores a la Release.
+Publicar: sube la versión en `app_info.py` y haz `git push` a `main` → GitHub Actions compila, crea la etiqueta `vX.Y.Z` y adjunta los instaladores a la Release (si esa versión ya existe, no la repite).
 
 
 ---
