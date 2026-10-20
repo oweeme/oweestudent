@@ -125,15 +125,26 @@ jobs:
           path: OweeStudent-*-android.apk
 
   release:
-    if: startsWith(github.ref, 'refs/tags/v') && needs.linux.result == 'success' && needs.windows.result == 'success'
+    # Con una etiqueta v* publica esa versión; con un push a main publica la versión de app_info.py si aún no existe (GitHub crea la etiqueta)
+    if: (startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/main') && github.event_name == 'push' && needs.linux.result == 'success' && needs.windows.result == 'success'
     needs: [linux, windows, macos, android]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v4
+      - name: Etiqueta de la versión
+        run: |
+          if [[ '${{ github.ref_type }}' == 'tag' ]]; then TAG='${{ github.ref_name }}'; else TAG="v$(python3 -c 'import app_info;print(app_info.VERSION)')"; fi
+          echo "TAG=$TAG" >> $GITHUB_ENV
+          if [[ '${{ github.ref_type }}' != 'tag' ]] && git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then echo "PUBLICAR=no" >> $GITHUB_ENV; else echo "PUBLICAR=si" >> $GITHUB_ENV; fi
+      - if: env.PUBLICAR == 'si'
+        uses: actions/download-artifact@v4
         with:
           path: descargas
           merge-multiple: true
-      - uses: softprops/action-gh-release@v2
+      - if: env.PUBLICAR == 'si'
+        uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ env.TAG }}
+          target_commitish: ${{ github.sha }}
           files: descargas/*
           generate_release_notes: true
