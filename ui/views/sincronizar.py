@@ -183,7 +183,7 @@ def build(st, recargar):
 
     movil = st.page.platform in (ft.PagePlatform.ANDROID, ft.PagePlatform.IOS)
     return ft.Column([
-        ft.Text(t("Sincronizar"), style=ft.TextThemeStyle.HEADLINE_SMALL), aviso,
+        ft.Text(t("Sincronizar"), theme_style=ft.TextThemeStyle.HEADLINE_SMALL), aviso,
         ft.Text(t("Estudia en cualquier equipo y sincroniza: se mezclan los cambios de los dos (gana el más reciente en cada elemento) y ambos quedan iguales. Se guarda un respaldo antes de mezclar."), size=13),
         tarjeta(t("1 · Este equipo"), ft.Row([nombre, ft.OutlinedButton(t("Guardar"), on_click=guardar_nombre)], wrap=True)),
         tarjeta(t("2 · Dar permiso a otro equipo"), que,

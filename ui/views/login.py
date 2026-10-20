@@ -35,7 +35,7 @@ def build(st, al_entrar):
 
     clave.on_submit = entrar
     return ft.Column([
-        logo(120), ft.Text("OweeStudent", style=ft.TextThemeStyle.HEADLINE_MEDIUM),
+        logo(120), ft.Text("OweeStudent", theme_style=ft.TextThemeStyle.HEADLINE_MEDIUM),
         ft.Text(t("Inicia sesión para continuar")), sel, clave,
         ft.ElevatedButton(t("Entrar"), icon=ft.Icons.LOGIN, on_click=entrar), error,
     ], spacing=14, horizontal_alignment=ft.CrossAxisAlignment.CENTER)

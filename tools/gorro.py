@@ -41,5 +41,4 @@ def construir(origen: str, salida: str, tam=1024, ancho_gorro=360, pos=(250, 420
 
 
 if __name__ == "__main__":
-    import sys
     construir("tools/logo_original.png", "assets/icon.png", ancho_gorro=330, pos=(262, 540), angulo=22)

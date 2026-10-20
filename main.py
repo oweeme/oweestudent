@@ -1,4 +1,5 @@
 import sys
+from pathlib import Path
 
 import flet as ft
 
@@ -6,13 +7,21 @@ import i18n
 from database import repo
 from database.db import DB_PATH
 from engine import ai, enlace, sync
+from engine import nivel as niveles
 from engine.entorno import restaurar_librerias
-from i18n import t
+from i18n import marcar, t
+from ui import tema
 from ui.state import AppState
-from ui.views import (ajustes, estudio, hoy, importar, login, material, plan, planes, repaso,
-                      sincronizar, stats)
+from ui.views import (ajustes, aprende_owee, asistente, estudio, hoy, entregas, escritor, exportar, importar, lecturas, login, material, plan,
+                      planes, practica, preguntar, repaso, sincronizar, stats)
 
 TEMAS = {"dark": ft.ThemeMode.DARK, "light": ft.ThemeMode.LIGHT, "system": ft.ThemeMode.SYSTEM}
+
+
+def _carpeta_assets() -> str:
+    """Carpeta `assets` también dentro de la app empaquetada (PyInstaller la deja en sys._MEIPASS, a veces en `_internal`)."""
+    base = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
+    return str(base / "assets")
 
 
 def main(page: ft.Page):
@@ -23,6 +32,7 @@ def main(page: ft.Page):
     st = AppState(page)
 
     def mostrar_login():
+        tema.aplicar(page)
         page.clean()
         page.navigation_bar = None
         page.on_resized = None
@@ -32,6 +42,7 @@ def main(page: ft.Page):
         page.update()
 
     def mostrar_app(vista=None):
+        tema.aplicar(page)
         page.clean()
         page.vertical_alignment = ft.MainAxisAlignment.START
         page.horizontal_alignment = ft.CrossAxisAlignment.START
@@ -39,35 +50,66 @@ def main(page: ft.Page):
 
     def construir_app(vista=None):
         cuerpo = ft.Container(expand=True, alignment=ft.alignment.top_left)
-        HOY, PLAN, MATERIAL, REPASO, ESTUDIAR, PLANES, IMPORTAR, METRICAS, SINCRONIZAR, AJUSTES = range(10)
+        HOY, PLAN, MATERIAL, REPASO, ESTUDIAR, PLANES, IMPORTAR, METRICAS, SINCRONIZAR, AJUSTES, OWEE, ASISTENTE, LECTURAS, PREGUNTAR, PRACTICA, EXPORTAR, ENTREGAS, ESCRITOR = range(18)
         PRINCIPALES = [HOY, PLAN, MATERIAL, REPASO]      # barra inferior / barra lateral (+ «Más»)
-        SIN_PLAN_OK = (PLANES, IMPORTAR, ESTUDIAR, REPASO, METRICAS, SINCRONIZAR, AJUSTES)
-        SECUNDARIAS = [(ESTUDIAR, t("Estudiar (Pomodoro y tarjetas)"), ft.Icons.TIMER),
+        SIN_PLAN_OK = (PLANES, IMPORTAR, ESTUDIAR, REPASO, METRICAS, SINCRONIZAR, AJUSTES, OWEE, ASISTENTE, PREGUNTAR, PRACTICA, EXPORTAR, ENTREGAS, ESCRITOR)
+        SECUNDARIAS = [(ENTREGAS, t("Entregas y exámenes"), ft.Icons.EVENT_AVAILABLE),
+                       (ASISTENTE, t("Asistente de objetivo"), ft.Icons.FLAG),
+                       (ESTUDIAR, t("Estudiar (Pomodoro y tarjetas)"), ft.Icons.TIMER),
+                       (ESCRITOR, t("Escritor (monografías, tesis, libros)"), ft.Icons.EDIT_DOCUMENT),
+                       (PRACTICA, t("Práctica activa (recordar, explicar, simulacro)"), ft.Icons.PSYCHOLOGY),
+                       (LECTURAS, t("Lecturas (investigación)"), ft.Icons.LIBRARY_BOOKS),
+                       (PREGUNTAR, t("Preguntar a mis documentos"), ft.Icons.QUESTION_ANSWER),
                        (PLANES, t("Carpetas y asignaturas"), ft.Icons.FOLDER_COPY),
                        (IMPORTAR, t("Importar plan"), ft.Icons.UPLOAD_FILE),
                        (METRICAS, t("Métricas"), ft.Icons.INSERT_CHART),
+                       (OWEE, t("Aprende Owee (curso del idioma)"), ft.Icons.TRANSLATE),
+                       (EXPORTAR, t("Exportar a Anki"), ft.Icons.IOS_SHARE),
                        (SINCRONIZAR, t("Sincronizar con otro equipo"), ft.Icons.SYNC),
                        (AJUSTES, t("Ajustes, IA y apariencia"), ft.Icons.SETTINGS)]
+        investiga = niveles.ajustes(st.nivel())["investigacion"]      # la gestión de lecturas solo aparece desde la universidad
+        SECUNDARIAS[:] = [x for x in SECUNDARIAS if investiga or x[0] != LECTURAS]
         vistas = {
-            HOY: lambda: hoy.build(st, lambda: ir(ESTUDIAR), lambda: ir(HOY), lambda: ir(REPASO)),
+            HOY: lambda: hoy.build(st, lambda: ir(ESTUDIAR), lambda: ir(HOY), lambda: ir(REPASO), lambda: ir(ENTREGAS)),
             PLAN: lambda: plan.build(st, lambda: ir(ESTUDIAR), lambda: ir(PLAN)),
             MATERIAL: lambda: material.build(st, lambda: ir(MATERIAL)),
             REPASO: lambda: repaso.build(st),
             ESTUDIAR: lambda: estudio.build(st),
-            PLANES: lambda: planes.build(st, lambda: ir(PLANES), mostrar_login, lambda: ir(IMPORTAR)),
+            PLANES: lambda: planes.build(st, lambda: mostrar_app(PLANES), mostrar_login, lambda: ir(IMPORTAR)),
             IMPORTAR: lambda: importar.build(st, lambda: ir(PLAN)),
             METRICAS: lambda: stats.build(st),
             SINCRONIZAR: lambda: sincronizar.build(st, lambda: ir(SINCRONIZAR)),
+            ASISTENTE: lambda: asistente.build(st, lambda: ir(PLAN), lambda: ir(OWEE)),
+            ESCRITOR: lambda: escritor.build(st, lambda: ir(LECTURAS)),
+            ENTREGAS: lambda: entregas.build(st, lambda: ir(PRACTICA)),
+            PRACTICA: lambda: practica.build(st, lambda: ir(REPASO)),
+            EXPORTAR: lambda: exportar.build(st),
+            LECTURAS: lambda: lecturas.build(st, lambda: ir(LECTURAS), lambda mid, pag: (setattr(st, "abrir_material", (mid, pag)), ir(MATERIAL))),
+            PREGUNTAR: lambda: preguntar.build(st, lambda: ir(MATERIAL), lambda: ir(LECTURAS)),
+            OWEE: lambda: aprende_owee.build(st, lambda: ir(OWEE)),
             AJUSTES: lambda: ajustes.build(st, lambda: ir(HOY), lambda: mostrar_app(AJUSTES)),
         }
         ETIQ = {HOY: (t("Hoy"), ft.Icons.TODAY), PLAN: (t("Plan"), ft.Icons.SCHOOL),
                 MATERIAL: (t("Material"), ft.Icons.MENU_BOOK), REPASO: (t("Repaso"), ft.Icons.REPLAY)}
 
+        GRUPOS = [(marcar("Estudiar"), (ENTREGAS, ESTUDIAR, PRACTICA)),
+                  (marcar("Planificar"), (ASISTENTE, PLANES, IMPORTAR)),
+                  (marcar("Investigar y escribir"), (ESCRITOR, LECTURAS, PREGUNTAR)),
+                  (marcar("Idiomas"), (OWEE,)),
+                  (marcar("Datos y ajustes"), (METRICAS, EXPORTAR, SINCRONIZAR, AJUSTES))]
+
         def pantalla_mas():
-            return ft.Column([ft.Text(t("Más"), style=ft.TextThemeStyle.HEADLINE_SMALL),
-                              *[ft.ListTile(leading=ft.Icon(ic), title=ft.Text(txt), trailing=ft.Icon(ft.Icons.CHEVRON_RIGHT),
-                                            on_click=lambda _, i=i: ir(i)) for i, txt, ic in SECUNDARIAS]],
-                             spacing=4, scroll=ft.ScrollMode.AUTO, expand=True)
+            """El menú «Más», con las opciones agrupadas por lo que se quiere hacer."""
+            por_id = {i: (txt, ic) for i, txt, ic in SECUNDARIAS}
+            filas = []
+            for nombre, ids in GRUPOS:
+                presentes = [i for i in ids if i in por_id]
+                if presentes:
+                    filas.append(ft.Text(t(nombre), size=12, weight=ft.FontWeight.BOLD, color=ft.Colors.PRIMARY))
+                    filas += [ft.ListTile(leading=ft.Icon(por_id[i][1]), title=ft.Text(por_id[i][0]), dense=True,
+                                          trailing=ft.Icon(ft.Icons.CHEVRON_RIGHT), on_click=lambda _, i=i: ir(i)) for i in presentes]
+            return ft.Column([ft.Text(t("Más"), theme_style=ft.TextThemeStyle.HEADLINE_SMALL), *filas],
+                             spacing=2, scroll=ft.ScrollMode.AUTO, expand=True)
 
         def seleccionar(i):
             k = PRINCIPALES.index(i) if i in PRINCIPALES else len(PRINCIPALES)
@@ -140,6 +182,6 @@ def main(page: ft.Page):
 if __name__ == "__main__":
     restaurar_librerias()  # app empaquetada: que el cliente gráfico use las librerías del sistema
     if "--web" in sys.argv:  # sirve la app por Wi-Fi para móvil/tablet
-        ft.app(target=main, view=None, host="0.0.0.0", port=8550)  # solo servidor: no abre ventana en el PC
+        ft.app(target=main, view=None, host="0.0.0.0", port=8550, assets_dir=_carpeta_assets())  # solo servidor: no abre ventana en el PC
     else:
-        ft.app(target=main)
+        ft.app(target=main, assets_dir=_carpeta_assets())

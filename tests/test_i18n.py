@@ -24,7 +24,7 @@ def test_ninguna_funcion_oculta_t():
     assert extraer.sombras() == []
 
 
-@pytest.mark.parametrize("codigo", ["en"])
+@pytest.mark.parametrize("codigo", ["en", "de", "ru", "zh", "ja"])
 def test_catalogo_completo(codigo):
     faltan = [k for k in CLAVES if k not in CATALOGOS[codigo]]
     assert faltan == [], f"faltan en {codigo}: {faltan[:5]}"
@@ -82,6 +82,45 @@ def test_reglas_de_plural_por_idioma():
     assert i18n.indice_plural("de", 1) == 0 and i18n.indice_plural("de", 0) == 1
 
 
+def test_plural_ruso_con_tres_formas():
+    i18n.fijar_idioma("ru")
+    assert [i18n.tn(n, "{n} día", "{n} días") for n in (1, 3, 5)] == ["1 день", "3 дня", "5 дней"]
+    assert i18n.tn(21, "{n} día", "{n} días") == "21 день"
+
+
+def test_plural_alemán_chino_y_japones():
+    i18n.fijar_idioma("de")
+    assert [i18n.tn(n, "{n} día", "{n} días") for n in (1, 2)] == ["1 Tag", "2 Tage"]
+    for codigo, esperado in (("zh", "2 天"), ("ja", "2 日")):
+        i18n.fijar_idioma(codigo)
+        assert i18n.tn(2, "{n} día", "{n} días") == esperado
+
+
+def test_cada_idioma_tiene_su_nombre_y_no_mezcla_escrituras():
+    assert set(i18n.disponibles()) == {"es", "en", "de", "ru", "zh", "ja", "qow"}
+    assert i18n.NOMBRES["zh"] == "中文" and i18n.NOMBRES["ja"] == "日本語"
+    i18n.fijar_idioma("ja")
+    assert any("\u3040" <= ch <= "\u30ff" for ch in i18n.t("Guardar") + i18n.t("Cancelar"))
+
+
+def test_aviso_de_fuente_solo_para_chino_y_japones_en_linux(monkeypatch):
+    from types import SimpleNamespace
+    from i18n import fuentes
+    monkeypatch.setattr(fuentes.sys, "platform", "linux")
+    sin = SimpleNamespace(returncode=0, stdout="")
+    con = SimpleNamespace(returncode=0, stdout="Noto Sans CJK SC\n")
+    monkeypatch.setattr(fuentes.subprocess, "run", lambda *a, **k: sin)
+    assert fuentes.comando_para_instalar("zh") == fuentes.PAQUETE_LINUX
+    assert fuentes.comando_para_instalar("ja") == fuentes.PAQUETE_LINUX
+    assert fuentes.comando_para_instalar("ru") is None and fuentes.comando_para_instalar("es") is None
+    monkeypatch.setattr(fuentes.subprocess, "run", lambda *a, **k: con)
+    assert fuentes.comando_para_instalar("zh") is None
+    monkeypatch.setattr(fuentes.subprocess, "run", lambda *a, **k: (_ for _ in ()).throw(FileNotFoundError()))
+    assert fuentes.comando_para_instalar("zh") is None      # sin fontconfig: no se avisa en falso
+    monkeypatch.setattr(fuentes.sys, "platform", "win32")
+    assert fuentes.comando_para_instalar("zh") is None
+
+
 def test_idioma_desconocido_cae_al_espanol():
     assert i18n.fijar_idioma("xx") == "es"
     assert i18n.fijar_idioma("en") == "en"
@@ -120,3 +159,16 @@ def test_la_interfaz_se_construye_en_todos_los_idiomas():
         for mod in ("login", "hoy", "plan", "importar", "estudio", "planes", "material", "sincronizar", "ajustes",
                     "repaso", "stats"):
             importlib.import_module(f"ui.views.{mod}")
+
+
+def test_los_catalogos_no_repiten_claves():
+    """Una clave repetida en un diccionario Python se pisa en silencio: se vigila aquí."""
+    import ast
+    import collections
+    from pathlib import Path
+    for f in sorted((Path(__file__).resolve().parents[1] / "i18n/catalogos").glob("*.py")):
+        if f.name == "__init__.py":
+            continue
+        d = next(n for n in ast.walk(ast.parse(f.read_text(encoding="utf-8"))) if isinstance(n, ast.Dict))
+        repetidas = [k for k, v in collections.Counter(x.value for x in d.keys if isinstance(x, ast.Constant)).items() if v > 1]
+        assert repetidas == [], f"{f.name}: {repetidas}"

@@ -23,8 +23,8 @@ def carpeta_material(tmp_path, monkeypatch):
 # ---------- carpetas y asignaturas ----------
 def test_carpetas_y_asignaturas(bd):
     c = repo.crear_carpeta(bd, "3º Secundaria")
-    mat = repo.crear_plan(bd, "Matemática", 1, carpeta_id=c)
-    cie = repo.crear_plan(bd, "Ciencias", 1, carpeta_id=c)
+    repo.crear_plan(bd, "Matemática", 1, carpeta_id=c)
+    repo.crear_plan(bd, "Ciencias", 1, carpeta_id=c)
     suelta = repo.crear_plan(bd, "Inglés", 1)
     assert [p["titulo"] for p in repo.planes_de_carpeta(bd, 1, c)] == ["Matemática", "Ciencias"]
     assert [p["titulo"] for p in repo.planes_de_carpeta(bd, 1, None)] == ["Inglés"]

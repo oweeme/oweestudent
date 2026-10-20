@@ -90,7 +90,6 @@ def test_sincronizar_solo_una_carpeta(equipo):
 
 def test_carpeta_inexistente(equipo):
     A = init_db(str(equipo / "A.db"))
-    s = None
     with pytest.raises(ValueError):
         sync._snapshot(A, "no-existe")
 

@@ -91,7 +91,7 @@ def build(st, ir_a_plan):
             st.page.update()
         threading.Thread(target=hacer, daemon=True).start()
     return ft.Column([
-        ft.Text(t("Importar plan de estudios"), style=ft.TextThemeStyle.HEADLINE_SMALL),
+        ft.Text(t("Importar plan de estudios"), theme_style=ft.TextThemeStyle.HEADLINE_SMALL),
         ft.ExpansionTile(title=ft.Text(t("✨ Generar un plan con IA (opcional)")), controls=[
             ft.Column([objetivo, ft.Row([nivel, horas, meses], wrap=True),
                        ft.Row([ft.ElevatedButton(t("Generar"), icon=ft.Icons.AUTO_AWESOME, on_click=generar),

@@ -1,6 +1,6 @@
 [project]
 name = "oweestudent"
-version = "0.3.0"
+version = "0.10.0"
 description = "Plan de estudios, repaso espaciado (FSRS) e IA local para estudiantes y autodidactas"
 requires-python = ">=3.10"
 license = { text = "MIT" }
@@ -24,3 +24,14 @@ module = "main"
 
 [tool.flet.android]
 split_abi = false
+
+[tool.ruff]
+line-length = 140
+extend-exclude = ["owee_curso/datos.py", "i18n/catalogos"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["B017", "B018"]
+
+[tool.ruff.lint]
+select = ["F", "E9", "B"]
+ignore = ["B008", "B023", "B904", "B007", "B905"]   # B023/B008: patrones habituales de Flet (lambdas con valores por defecto)

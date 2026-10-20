@@ -2,6 +2,7 @@ import flet as ft
 
 from database import repo
 from i18n import t
+from ui.components.owee_texto import texto_tarjeta
 
 
 def build(st):
@@ -9,7 +10,7 @@ def build(st):
 
     def cargar():
         col.controls.clear()
-        col.controls.append(ft.Text(t("Repaso"), style=ft.TextThemeStyle.HEADLINE_SMALL))
+        col.controls.append(ft.Text(t("Repaso"), theme_style=ft.TextThemeStyle.HEADLINE_SMALL))
         tj = repo.tarjetas_pendientes(st.conn, st.perfil_id)
         notas = repo.repasos_pendientes(st.conn, st.perfil_id)
         if not tj and not notas:
@@ -26,7 +27,7 @@ def build(st):
         st.page.update()
 
     def _card(pregunta, respuesta, tema, calificar):
-        resp = ft.Text(respuesta, visible=False, selectable=True, size=15)
+        resp = texto_tarjeta(respuesta, size=15, selectable=True, visible=False)
         botones = ft.Row([ft.OutlinedButton(str(q), on_click=lambda _, q=q: calificar(q)) for q in range(6)],
                          visible=False, wrap=True)
         leyenda = ft.Text(t("¿Qué tan bien lo recordaste? 0 = nada · 3 = con esfuerzo · 5 = perfecto"), size=12,
@@ -37,7 +38,7 @@ def build(st):
             st.page.update()
 
         return ft.Card(content=ft.Container(padding=14, content=ft.Column([
-            ft.Text(tema, size=12, color=ft.Colors.BLUE_200), ft.Text(pregunta, size=17, weight=ft.FontWeight.W_500),
+            ft.Text(tema, size=12, color=ft.Colors.BLUE_200), texto_tarjeta(pregunta, size=17, weight=ft.FontWeight.W_500),
             ft.TextButton(t("Mostrar respuesta (intenta recordar primero)"), on_click=mostrar), resp, leyenda, botones])))
 
     cargar()

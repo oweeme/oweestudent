@@ -15,7 +15,7 @@ def opciones_nivel():
 
 def tarjeta(titulo, *controles):
     return ft.Card(content=ft.Container(padding=14, content=ft.Column(
-        [ft.Text(titulo, style=ft.TextThemeStyle.TITLE_MEDIUM), *controles], spacing=8)))
+        [ft.Text(titulo, theme_style=ft.TextThemeStyle.TITLE_MEDIUM), *controles], spacing=8)))
 
 
 def barra_progreso(valor, etiqueta=""):
