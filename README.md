@@ -24,10 +24,12 @@ OweeStudent es gratis. Si te ayuda a estudiar, puedes colaborar con una donació
 |---|---|---|
 | **Linux** | `OweeStudent-X-linux-x86_64.tar.gz` | Descomprime y ejecuta `./install.sh` (instala en `~/.local`) |
 | **Debian/Ubuntu** | `oweestudent_X_amd64.deb` | `sudo apt install ./oweestudent_X_amd64.deb` (este sí requiere root) |
+| **Linux (un archivo)** | `OweeStudent-X-x86_64.AppImage` | `chmod +x` y doble clic; no instala nada. Necesita `libmpv2` del sistema |
 | **Windows** | `OweeStudent-X-windows-setup.exe` | Doble clic (instala por usuario). Si SmartScreen avisa: «Más información → Ejecutar de todas formas» (el instalador no está firmado) |
+| **macOS** | `OweeStudent-X-macos-arm64.dmg` (Apple Silicon) o `-x86_64.dmg` (Intel) | Abre el .dmg y arrastra a Aplicaciones. Sin firmar: la primera vez, clic derecho → Abrir |
 | **Android** | `OweeStudent-X-android.apk` | Ábrelo y permite «instalar apps desconocidas». *Experimental* (ver abajo) |
 
-macOS e iOS: aún no se publican (requieren compilar en un Mac y cuenta de Apple Developer).
+iOS no se publica (requiere cuenta de Apple Developer). Flathub: hay un borrador en `packaging/flatpak/` (aún sin probar; necesita un módulo `mpv`).
 
 ## IA ligera con un botón (opcional)
 **Ajustes → «✨ Activar IA»**: la app mira qué hay en tu equipo y hace lo más corto, sin terminal:
@@ -146,7 +148,7 @@ Android (`flet build apk`) necesita Flutter y el SDK de Android: es más cómodo
 
 Linux empaquetado: el lanzador (`packaging/linux/launcher.sh`) enlaza `libmpv.so.2` como `libmpv.so.1` y, si la app no abre, muestra el motivo y lo guarda en `~/.local/share/oweestudent/ultimo-error.log`. En cada compilación se prueba en un Debian 12 limpio (`packaging/linux/smoke.sh`).
 El icono se genera con `tools/gorro.py` (logo de Oweeme + gorro).
-Publicar: `git tag v0.12.0 && git push --tags` → GitHub Actions compila y adjunta los instaladores a la Release.
+Publicar: `git tag v0.12.1 && git push --tags` → GitHub Actions compila y adjunta los instaladores a la Release.
 
 
 ---

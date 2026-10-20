@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=OweeStudent
+Comment=Plan de estudios, repaso espaciado e IA local
+Exec=oweestudent
+Icon=app.oweestudent.OweeStudent
+Terminal=false
+Categories=Education;

@@ -48,12 +48,39 @@ jobs:
           tar -C paquete -czf OweeStudent-${VERSION}-linux-x86_64.tar.gz OweeStudent-${VERSION}-linux
       - name: Paquete .deb
         run: packaging/linux/build_deb.sh dist/OweeStudent "$VERSION" "oweestudent_${VERSION}_amd64.deb"
+      - name: AppImage (un solo archivo, sin instalar)
+        run: packaging/linux/build_appimage.sh dist/OweeStudent "$VERSION" "OweeStudent-${VERSION}-x86_64.AppImage"
       - uses: actions/upload-artifact@v4
         with:
           name: linux
           path: |
             OweeStudent-*-linux-x86_64.tar.gz
             oweestudent_*_amd64.deb
+            OweeStudent-*-x86_64.AppImage
+
+  macos:
+    needs: pruebas
+    continue-on-error: true   # sin firmar: no bloquea la Release si falla
+    strategy:
+      matrix:
+        include:
+          - { os: macos-latest, arch: arm64 }        # Apple Silicon
+          - { os: macos-15-intel, arch: x86_64 }     # Intel
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "${{ env.PYTHON_VERSION }}" }
+      - name: Versión
+        run: echo "VERSION=$(if [[ '${{ github.ref_type }}' == 'tag' ]]; then echo '${{ github.ref_name }}' | sed 's/^v//'; else python3 -c 'import app_info;print(app_info.VERSION)'; fi)" >> $GITHUB_ENV
+      - run: pip install -r requirements.txt pyinstaller
+      - run: flet pack main.py --name OweeStudent -y -i assets/icon_512.png --add-data "assets:assets" --product-name OweeStudent --bundle-id app.oweestudent
+      - name: "Imagen .dmg (sin firmar, la primera vez: clic derecho → Abrir)"
+        run: packaging/macos/build_dmg.sh dist/OweeStudent.app "$VERSION" "OweeStudent-${VERSION}-macos-${{ matrix.arch }}.dmg"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-${{ matrix.arch }}
+          path: OweeStudent-*-macos-*.dmg
 
   windows:
     needs: pruebas
@@ -99,7 +126,7 @@ jobs:
 
   release:
     if: startsWith(github.ref, 'refs/tags/v') && needs.linux.result == 'success' && needs.windows.result == 'success'
-    needs: [linux, windows, android]
+    needs: [linux, windows, macos, android]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
