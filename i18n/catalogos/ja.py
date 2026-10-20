@@ -1068,4 +1068,5 @@ TEXTOS = {
     'Perfiles y usuarios': 'プロフィールとユーザー',
     'Cada perfil tiene sus propias carpetas y planes. Tus carpetas y asignaturas están en la pestaña «Plan».': 'プロフィールごとに専用のフォルダとプランがあります。フォルダと科目は「プラン」タブにあります。',
     'Agregar al plan «{titulo}»': 'プラン「{titulo}」に追加',
+    'Importado, pero sin estructura: no encontré módulos y cada línea quedó como un tema. Para un plan ordenado usa un archivo con títulos (#, ##, ###).': 'インポートしましたが構造がありません。モジュールが見つからず、各行がトピックになりました。整ったプランにするには見出し（#、##、###）付きのファイルを使ってください。',
 }

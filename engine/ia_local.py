@@ -21,11 +21,11 @@ from i18n import t
 
 LLAMA_TAG = "b11312"
 BASE_MOTOR = f"https://github.com/ggml-org/llama.cpp/releases/download/{LLAMA_TAG}/"
-HF = "https://huggingface.co/Qwen/Qwen2.5-{p}-Instruct-GGUF/resolve/main/qwen2.5-{p}-instruct-q4_k_m.gguf"
+HF = "https://huggingface.co/Qwen/Qwen2.5-{p}-Instruct-GGUF/resolve/main/qwen2.5-{q}-instruct-q4_k_m.gguf"   # repo en mayúsculas (0.5B), archivo en minúsculas (0.5b)
 # clave -> (archivo, url, tamaño aproximado en MB, RAM aproximada en GB)
-MODELOS = {"0.5b": ("qwen2.5-0.5b-instruct-q4_k_m.gguf", HF.format(p="0.5B"), 491, 0.6),
-           "1.5b": ("qwen2.5-1.5b-instruct-q4_k_m.gguf", HF.format(p="1.5B"), 1117, 1.3),
-           "3b": ("qwen2.5-3b-instruct-q4_k_m.gguf", HF.format(p="3B"), 2105, 2.4)}
+MODELOS = {"0.5b": ("qwen2.5-0.5b-instruct-q4_k_m.gguf", HF.format(p="0.5B", q="0.5b"), 491, 0.6),
+           "1.5b": ("qwen2.5-1.5b-instruct-q4_k_m.gguf", HF.format(p="1.5B", q="1.5b"), 1117, 1.3),
+           "3b": ("qwen2.5-3b-instruct-q4_k_m.gguf", HF.format(p="3B", q="3b"), 2105, 2.4)}
 PUERTO = 8089
 INACTIVIDAD = 120  # s sin usar la IA -> se apaga el servidor y libera la RAM
 DIR = DATOS / "ia"

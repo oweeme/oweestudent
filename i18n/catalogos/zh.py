@@ -1068,4 +1068,5 @@ TEXTOS = {
     'Perfiles y usuarios': '配置文件与用户',
     'Cada perfil tiene sus propias carpetas y planes. Tus carpetas y asignaturas están en la pestaña «Plan».': '每个配置文件都有自己的文件夹和计划。你的文件夹和科目在“计划”标签页。',
     'Agregar al plan «{titulo}»': '添加到计划“{titulo}”',
+    'Importado, pero sin estructura: no encontré módulos y cada línea quedó como un tema. Para un plan ordenado usa un archivo con títulos (#, ##, ###).': '已导入，但没有结构：没有找到模块，每一行都成了一个主题。要得到有条理的计划，请使用带标题（#、##、###）的文件。',
 }

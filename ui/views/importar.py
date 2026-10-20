@@ -39,7 +39,9 @@ def build(st, ir_a_plan):
             st.page.update()
             return
         st.carpeta_destino = None
-        st.toast(t("Importado"))
+        sin_forma = [r[0] for r in st.conn.execute("SELECT titulo FROM unidades WHERE plan_id=?", (st.plan_id,))] == ["Contenido importado"]
+        st.toast(t("Importado, pero sin estructura: no encontré módulos y cada línea quedó como un tema. Para un plan ordenado usa un archivo con títulos (#, ##, ###).")
+                 if sin_forma else t("Importado"))
         ir_a_plan()
 
     def _carpeta():

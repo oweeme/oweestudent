@@ -12,7 +12,8 @@ def extract_text(file_path: str) -> str:
         return Path(file_path).read_text(encoding="utf-8", errors="ignore")
     if ext == "pdf":
         from pypdf import PdfReader
-        return "\n".join((p.extract_text() or "") for p in PdfReader(file_path).pages)
+        from parsers.pdf_plan import a_markdown     # si parece un plan, recupera módulos y temas que el PDF aplana
+        return a_markdown("\n".join((p.extract_text() or "") for p in PdfReader(file_path).pages))
     if ext == "docx":
         try:
             from docx import Document
