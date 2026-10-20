@@ -21,9 +21,11 @@ FK = {"carpetas": {"perfil_id": ("perfiles", True)},
       "lecturas": {"plan_id": ("planes", True), "material_id": ("materiales", False)},
       "practicas": {"plan_id": ("planes", True), "tema_id": ("temas", False)},
       "entregas": {"plan_id": ("planes", True)},
+      "retos": {"plan_id": ("planes", True), "tema_id": ("temas", False)},
+      "sprints": {"plan_id": ("planes", True), "tema_id": ("temas", False)}, "sprint_tareas": {"sprint_id": ("sprints", True)},
       "escritos": {"plan_id": ("planes", True)}, "secciones": {"escrito_id": ("escritos", True)},
       "sesiones": {"tema_id": ("temas", False)}, "notas": {"tema_id": ("temas", True)},
-      "tarjetas": {"tema_id": ("temas", True)}, "repasos_log": {"tema_id": ("temas", False)}}
+      "tarjetas": {"tema_id": ("temas", True)}, "repasos_log": {"tema_id": ("temas", False), "tarjeta_id": ("tarjetas", False)}}
 NO_PISAR = {"perfiles": {"clave_hash", "sal"}, "materiales": {"ruta"}}  # una mezcla nunca cambia la clave de un perfil ni la ruta local de un archivo
 NULL_EN_INSERT = {"materiales": ("ruta",)}  # la ruta del otro equipo no sirve aquí
 INMUTABLES = {"sesiones", "repasos_log", "practicas"}  # solo se añaden

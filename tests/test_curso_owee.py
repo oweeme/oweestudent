@@ -67,7 +67,7 @@ def test_tarjetas_de_glifos_y_vocabulario(conn):
     n = curso.crear_tarjetas_leccion(conn, p, "1.1")
     assert n > 0 and curso.crear_tarjetas_leccion(conn, p, "1.1") == 0      # sin duplicar
     filas = conn.execute("SELECT pregunta, respuesta, origen FROM tarjetas").fetchall()
-    assert {f["origen"] for f in filas} == {"owee"}
+    assert {f["origen"] for f in filas} == {"owee", "produccion"}
     # solo texto latino con marca: los glifos (área privada) nunca se guardan
     assert not any(owee.tiene_glifos(f["pregunta"] + f["respuesta"]) for f in filas)
     assert any(f["pregunta"].startswith(curso.MARCA_OWEE) for f in filas)

@@ -8,7 +8,7 @@ from engine import busqueda as bq
 from engine import escritura as es
 from i18n import t, tn
 from ui.components import guardar
-from ui.components.widgets import confirmar, dialogo
+from ui.components.widgets import ancho_dialogo, confirmar, dialogo
 from ui.views.preguntar import ruta_indice
 
 FORMATOS = (("md", "Markdown (.md)"), ("html", "HTML (.html)"), ("docx", "Word (.docx)"))
@@ -124,7 +124,7 @@ def build(st, ir_a_lecturas=lambda: None, indice=None):
         doc = es.compilar(c, est["escrito"])
         dlg = ft.AlertDialog(title=ft.Text(t("Vista previa")), content=ft.Column(
             [ft.Markdown(es.a_markdown(doc), selectable=True, extension_set=ft.MarkdownExtensionSet.GITHUB_WEB)], scroll=ft.ScrollMode.AUTO,
-            width=560, height=460), actions=[ft.TextButton(t("Cerrar"), on_click=lambda _: st.page.close(dlg))])
+            width=ancho_dialogo(st.page, 560), height=460), actions=[ft.TextButton(t("Cerrar"), on_click=lambda _: st.page.close(dlg))])
         st.page.open(dlg)
 
     def copiar(_):
@@ -204,7 +204,7 @@ def build(st, ir_a_lecturas=lambda: None, indice=None):
 
         # citar
         opciones = [ft.dropdown.Option(k, f"{es.cita_corta(r)} — {r['titulo'][:40]}") for k, r in claves.items()]
-        elegida = ft.Dropdown(label=t("Lectura a citar"), width=360, options=opciones, value=opciones[0].key if opciones else None)
+        elegida = ft.Dropdown(label=t("Lectura a citar"), width=320, options=opciones, value=opciones[0].key if opciones else None)
         pagina = ft.TextField(label=t("Página"), width=100)
 
         def insertar_cita(_):

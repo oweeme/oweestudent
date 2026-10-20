@@ -3,7 +3,6 @@ import threading
 
 import flet as ft
 import pytest
-from conftest import Con
 
 import i18n
 from database import db, repo
@@ -193,5 +192,3 @@ def test_sin_asignatura_avisa(st):
     st.plan_id = None
     assert isinstance(escritor.build(st), ft.Text)
 
-
-_ = Con

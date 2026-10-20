@@ -63,7 +63,10 @@ def crear_tarjetas_leccion(conn, plan_id: int, id_: str) -> int:
     tema = _tema_de(conn, plan_id, l)
     if tema is None:
         return 0
-    return repo.crear_tarjetas(conn, tema, tarjetas_de_leccion(id_), "owee")
+    pares = tarjetas_de_leccion(id_)
+    directas = [x for x in pares if not x[1].startswith(MARCA_OWEE)]
+    inversas = [x for x in pares if x[1].startswith(MARCA_OWEE)]       # significado → palabra: se repasa escribiendo
+    return repo.crear_tarjetas(conn, tema, directas, "owee") + repo.crear_tarjetas(conn, tema, inversas, "produccion")
 
 
 def _tema_de(conn, plan_id: int, l: dict | None):
@@ -94,6 +97,11 @@ def crear_plan_del_curso(conn, perfil_id: int, inicio=None) -> int:
         for l in n["lecciones"]:
             repo.agregar_tema(conn, unidad, titulo_tema(l), horas=0.5 if n["n"] == 0 else 1.0)
     return plan
+
+
+def siguiente_leccion(conn, plan_id: int) -> dict | None:
+    """La primera lección que todavía no marcaste como hecha (None si terminaste el curso)."""
+    return next((l for l in lecciones() if estado_leccion(conn, plan_id, l["id"]) != "completado"), None)
 
 
 def estado_leccion(conn, plan_id: int, id_: str) -> str | None:

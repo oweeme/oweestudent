@@ -22,3 +22,17 @@ class Con:
 
     def __getattr__(self, nombre):
         return getattr(self._c, nombre)
+
+
+import pytest  # noqa: E402
+
+
+@pytest.fixture(autouse=True)
+def _idioma_limpio():
+    """Ninguna prueba hereda el idioma (ni la escritura Owee) de la anterior."""
+    import i18n
+    i18n.fijar_idioma("es")
+    i18n.fijar_escritura_owee(False)
+    yield
+    i18n.fijar_idioma("es")
+    i18n.fijar_escritura_owee(False)

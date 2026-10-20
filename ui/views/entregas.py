@@ -3,7 +3,9 @@ from datetime import date, timedelta
 import flet as ft
 
 from database import repo
+from engine import calendario
 from i18n import marcar, t, tn
+from ui.components import guardar
 from ui.components.widgets import confirmar, dialogo
 
 TIPOS = {"tarea": marcar("Tarea"), "examen": marcar("Examen"), "proyecto": marcar("Proyecto"), "otro": marcar("Otro")}
@@ -88,6 +90,26 @@ def build(st, ir_a_practica=lambda: None):
                 ft.PopupMenuItem(text=t("Editar"), on_click=lambda _, e=e: editar(e)),
                 ft.PopupMenuItem(text=t("Borrar"), on_click=lambda _, e=e: borrar(e))]))
 
+    # ---------- avisos en el calendario (.ics) ----------
+    hora = ft.TextField(label=t("Hora del recordatorio diario de repaso (vacío = ninguno)"), value="19:00", width=320)
+    aviso = ft.Text("", selectable=True)
+
+    def escribir_ics(destino):
+        destino.write_text(calendario.crear_ics(c, st.perfil_id, hora.value.strip() or None), encoding="utf-8", newline="")
+
+    def ics_listo(destino, error):
+        aviso.value, aviso.color = (t("No se pudo guardar: {ex}", ex=error), ft.Colors.RED_300) if error else \
+            (t("✅ Guardado en: {ruta}. Impórtalo en tu calendario y él te dará los avisos.", ruta=str(destino)), ft.Colors.GREEN_400)
+        st.page.update()
+
+    picker = guardar.preparar(st.page, lambda ruta: guardar.escribir_elegido(ruta, "ics", escribir_ics, ics_listo))
+
+    def exportar_ics(_):
+        if hora.value.strip() and not calendario.validar_hora(hora.value):
+            aviso.value, aviso.color = t("La hora debe tener el formato HH:MM, por ejemplo 19:00."), ft.Colors.RED_300
+            return st.page.update()
+        guardar.guardar(st.page, picker, "OweeStudent-avisos", "ics", escribir_ics, ics_listo)
+
     def construir():
         todas = repo.entregas(c, st.perfil_id)
         pend = [e for e in todas if e["estado"] == "pendiente"]
@@ -102,6 +124,9 @@ def build(st, ir_a_practica=lambda: None):
                 out += [ft.Text(f"{nombre} ({len(filas)})", weight=ft.FontWeight.BOLD, size=13), *[fila(e) for e in filas]]
         if not pend:
             out.append(ft.Text(t("No tienes nada pendiente 🎉")))
+        out += [ft.Divider(), ft.Text(t("Avisos en tu calendario"), weight=ft.FontWeight.BOLD, size=13),
+                ft.Text(t("La app no manda notificaciones por sí sola, pero tu calendario sí: descarga un archivo con tus entregas (aviso el día antes y el mismo día) y un repaso diario, e impórtalo en tu calendario."), size=12),
+                hora, ft.OutlinedButton(t("Añadir a mi calendario (.ics)"), icon=ft.Icons.NOTIFICATIONS_ACTIVE, on_click=exportar_ics), aviso]
         if hechas:
             out.append(ft.TextButton(t("Ocultar hechas") if ver_hechas["v"] else t("Ver hechas ({n})", n=len(hechas)),
                                      on_click=lambda _: (ver_hechas.update(v=not ver_hechas["v"]), refrescar())))

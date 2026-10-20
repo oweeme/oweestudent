@@ -11,7 +11,7 @@ DB_PATH = os.environ.get("OWEE_DB", str(DATOS / "estudios.db"))
 
 # Versión del esquema (PRAGMA user_version). Súbela cuando una migración cambie la estructura:
 # antes de migrar una base más antigua se guarda una copia en la carpeta «respaldos».
-VERSION_ESQUEMA = 5   # 2: lecturas · 3: prácticas · 4: entregas y exámenes · 5: escritos (monografías, tesis, libros)
+VERSION_ESQUEMA = 7   # 2: lecturas · 3: prácticas · 4: entregas · 5: escritos · 6: repasos con tarjeta · 7: retos y sprints
 MAX_RESPALDOS = 5   # copias que se conservan por motivo
 
 SCHEMA = """
@@ -104,6 +104,37 @@ CREATE TABLE IF NOT EXISTS secciones (
     meta_palabras INTEGER DEFAULT 0,
     notas TEXT DEFAULT ''
 );
+CREATE TABLE IF NOT EXISTS retos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    plan_id INTEGER REFERENCES planes(id) ON DELETE CASCADE,
+    tema_id INTEGER REFERENCES temas(id) ON DELETE SET NULL,
+    tipo TEXT DEFAULT 'aplicar',
+    titulo TEXT NOT NULL,
+    criterios TEXT DEFAULT '[]',
+    cumplidos TEXT DEFAULT '[]',
+    evidencia TEXT DEFAULT '',
+    estado TEXT NOT NULL CHECK(estado IN ('pendiente','hecho')) DEFAULT 'pendiente',
+    fecha_limite DATE,
+    hecho_en DATE,
+    creado DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS sprints (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    plan_id INTEGER REFERENCES planes(id) ON DELETE CASCADE,
+    tema_id INTEGER REFERENCES temas(id) ON DELETE SET NULL,
+    titulo TEXT NOT NULL,
+    inicio DATE NOT NULL,
+    estado TEXT NOT NULL CHECK(estado IN ('activo','terminado')) DEFAULT 'activo',
+    creado DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS sprint_tareas (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    sprint_id INTEGER REFERENCES sprints(id) ON DELETE CASCADE,
+    dia INTEGER NOT NULL,
+    titulo TEXT NOT NULL,
+    accion TEXT,
+    hecha INTEGER DEFAULT 0
+);
 CREATE TABLE IF NOT EXISTS planes (
     perfil_id INTEGER DEFAULT 1,
     carpeta_id INTEGER,
@@ -181,7 +212,7 @@ CREATE TABLE IF NOT EXISTS tarjetas (
 );
 CREATE TABLE IF NOT EXISTS repasos_log (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    tema_id INTEGER, tipo TEXT, calidad INTEGER,
+    tema_id INTEGER, tipo TEXT, calidad INTEGER, tarjeta_id INTEGER,
     fecha DATE DEFAULT (date('now','localtime'))
 );
 CREATE TABLE IF NOT EXISTS notas (
@@ -200,7 +231,7 @@ CREATE TABLE IF NOT EXISTS notas (
 
 # Tablas que se sincronizan entre equipos (la mezcla usa uid + fecha de modificación)
 TABLAS_SYNC = ["perfiles", "carpetas", "planes", "unidades", "temas", "recursos", "entregables", "metas_idioma",
-               "cronograma", "materiales", "notas_material", "lecturas", "sesiones", "notas", "tarjetas", "repasos_log", "practicas", "entregas", "escritos", "secciones"]
+               "cronograma", "materiales", "notas_material", "lecturas", "sesiones", "notas", "tarjetas", "repasos_log", "practicas", "entregas", "escritos", "secciones", "retos", "sprints", "sprint_tareas"]
 _AHORA = "strftime('%Y-%m-%dT%H:%M:%f','now')"
 _LEGADO = "2000-01-01T00:00:00.000"  # filas anteriores a la sincronización: cualquier edición real las supera
 
@@ -274,6 +305,8 @@ def init_db(db_path: str = DB_PATH) -> sqlite3.Connection:
     if ya_existia and version < VERSION_ESQUEMA:   # base de una versión anterior: copia de seguridad antes de migrar
         respaldar(conn, db_path, f"antes-de-v{VERSION_ESQUEMA}")
     conn.executescript(SCHEMA)
+    if "tarjeta_id" not in [r["name"] for r in conn.execute("PRAGMA table_info(repasos_log)")]:
+        conn.execute("ALTER TABLE repasos_log ADD COLUMN tarjeta_id INTEGER")   # v6: qué tarjeta se falló
     cols = [r["name"] for r in conn.execute("PRAGMA table_info(planes)")]
     if "perfil_id" not in cols:  # migración de bases creadas antes de los perfiles
         conn.execute("ALTER TABLE planes ADD COLUMN perfil_id INTEGER DEFAULT 1")

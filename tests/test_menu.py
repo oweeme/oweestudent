@@ -41,6 +41,7 @@ def _todos(control, tipo):
 
 def _arrancar(monkeypatch, nivel="universitario"):
     from ui import state
+    monkeypatch.setattr(i18n, "detectar_sistema", lambda: "es")      # el idioma del equipo de pruebas no debe influir
     p = _Pagina()
     original = state.AppState.__init__
 
@@ -74,7 +75,7 @@ def test_cada_opcion_del_menu_se_abre(monkeypatch, nivel, codigo):
         rail.on_change(type("E", (), {"control": rail})())
         menu = cuerpo.content
         opciones = _todos(menu, ft.ListTile)
-        assert len(opciones) == (14 if nivel == "universitario" else 13)      # sin «Lecturas (investigación)» en el colegio
+        assert len(opciones) == (16 if nivel == "universitario" else 15)      # sin «Lecturas (investigación)» en el colegio
         for i in range(len(opciones)):
             rail.on_change(type("E", (), {"control": rail})())       # volver al menú
             _todos(cuerpo.content, ft.ListTile)[i].on_click(None)

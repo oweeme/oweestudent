@@ -3,3 +3,4 @@ pypdf
 python-docx
 openpyxl
 qrcode[png]
+fastapi<0.120   # solo para --web: las versiones nuevas rompen flet-web 0.28
