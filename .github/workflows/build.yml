@@ -84,12 +84,12 @@ jobs:
           cp OweeStudent.iconset/icon_512x512.png OweeStudent.iconset/icon_256x256@2x.png
           iconutil -c icns OweeStudent.iconset -o assets/icon.icns
       - run: flet pack main.py --name OweeStudent -y -i assets/icon.icns --add-data "assets:assets" --product-name OweeStudent --bundle-id app.oweestudent
-      - name: "Imagen .dmg (sin firmar, la primera vez: clic derecho → Abrir)"
-        run: packaging/macos/build_dmg.sh dist/OweeStudent.app "$VERSION" "OweeStudent-${VERSION}-macos-${{ matrix.arch }}.dmg"
+      - name: "Comprimir la app (.zip, sin firmar: la primera vez, clic derecho → Abrir)"
+        run: ditto -c -k --keepParent dist/OweeStudent.app "OweeStudent-${VERSION}-macos-${{ matrix.arch }}.zip"
       - uses: actions/upload-artifact@v4
         with:
           name: macos-${{ matrix.arch }}
-          path: OweeStudent-*-macos-*.dmg
+          path: OweeStudent-*-macos-*.zip
 
   windows:
     needs: pruebas

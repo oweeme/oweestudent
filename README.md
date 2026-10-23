@@ -26,7 +26,7 @@ OweeStudent es gratis. Si te ayuda a estudiar, puedes colaborar con una donació
 | **Debian/Ubuntu** | `oweestudent_X_amd64.deb` | `sudo apt install ./oweestudent_X_amd64.deb` (este sí requiere root) |
 | **Linux (un archivo)** | `OweeStudent-X-x86_64.AppImage` | `chmod +x` y doble clic; no instala nada. Necesita `libmpv2` del sistema |
 | **Windows** | `OweeStudent-X-windows-setup.exe` | Doble clic (instala por usuario). Si SmartScreen avisa: «Más información → Ejecutar de todas formas» (el instalador no está firmado) |
-| **macOS** | `OweeStudent-X-macos-arm64.dmg` (Apple Silicon) o `-x86_64.dmg` (Intel) | Abre el .dmg y arrastra a Aplicaciones. Sin firmar: la primera vez, clic derecho → Abrir |
+| **macOS** | `OweeStudent-X-macos-arm64.zip` (Apple Silicon) o `-x86_64.zip` (Intel) | Descomprime y arrastra la app a Aplicaciones. Sin firmar: la primera vez, clic derecho → Abrir |
 | **Android** | `OweeStudent-X-android.apk` | Ábrelo y permite «instalar apps desconocidas». *Experimental* (ver abajo) |
 
 iOS no se publica (requiere cuenta de Apple Developer). Flathub: hay un borrador en `packaging/flatpak/` (aún sin probar; necesita un módulo `mpv`).

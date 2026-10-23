@@ -1,6 +1,6 @@
 """Datos del proyecto (fuente única para la app, los instaladores y el README)."""
 NOMBRE = "OweeStudent"
-VERSION = "0.13.0"
+VERSION = "0.13.1"
 AUTOR = "Hector Martinez"
 WEB = "https://www.oweeme.com"
 EMAIL = "hector@oweeme.com"
