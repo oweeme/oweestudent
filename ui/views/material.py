@@ -1,3 +1,5 @@
+import base64
+import hashlib
 import os
 import threading
 from pathlib import Path
@@ -10,9 +12,9 @@ from i18n import marcar, t, tn
 from ui.components.widgets import confirmar, dialogo
 
 TIPOS_PLAN = ("md", "txt", "pdf", "docx")
-EXT = ["pdf", "docx", "xlsx", "csv", "txt", "md"]
+EXT = ["pdf", "docx", "xlsx", "csv", "txt", "md", "png", "jpg", "jpeg", "webp", "gif"]
 TIPOS_NOTA = {"conclusion": marcar("Conclusión"), "cita": marcar("Cita"), "duda": marcar("Duda"), "idea": marcar("Idea")}
-ICONOS = {"pdf": ft.Icons.PICTURE_AS_PDF, "docx": ft.Icons.DESCRIPTION, "xlsx": ft.Icons.TABLE_CHART,
+ICONOS = {"imagen": ft.Icons.IMAGE, "enlace": ft.Icons.LINK, "pdf": ft.Icons.PICTURE_AS_PDF, "docx": ft.Icons.DESCRIPTION, "xlsx": ft.Icons.TABLE_CHART,
           "csv": ft.Icons.TABLE_CHART, "txt": ft.Icons.ARTICLE, "md": ft.Icons.ARTICLE}
 
 
@@ -65,12 +67,31 @@ def build(st, recargar, ir_plan=lambda pid: None):
 
     picker.on_result = lambda e: adjuntar(e.files[0].path) if e.files else None
 
+    enlace = ft.TextField(label=t("Enlace (página web, vídeo, documento en línea…)"), width=360)
+    enlace_titulo = ft.TextField(label=t("Nombre (opcional)"), width=240)
+
+    def adjuntar_enlace(_):
+        url = mat.normalizar_url(enlace.value)
+        if not url:
+            return msg(t("Eso no parece un enlace. Ejemplo: https://ejemplo.com/articulo"), True)
+        h = hashlib.sha256(url.encode()).hexdigest()
+        if repo.material_por_hash(c, h, st.plan_id):
+            return msg(t("Ese enlace ya está en esta asignatura."))
+        repo.agregar_material(c, st.plan_id, enlace_titulo.value.strip() or url, "enlace", h, url, None, 0)      # la dirección va en nombre_archivo (se sincroniza; la ruta es solo de este equipo)
+        enlace.value = enlace_titulo.value = ""
+        msg(t("Enlace añadido ✅"))
+        mostrar_lista()
+
     # ---------- lista ----------
     def disponible(m):
-        return bool(m["ruta"]) and os.path.exists(m["ruta"])
+        return m["tipo"] == "enlace" or (bool(m["ruta"]) and os.path.exists(m["ruta"]))
 
     def abrir(mid):
         aviso.value = ""
+        fila = c.execute("SELECT tipo, nombre_archivo FROM materiales WHERE id=?", (mid,)).fetchone()
+        if fila["tipo"] == "enlace":          # un enlace se abre en tu navegador
+            st.page.launch_url(fila["nombre_archivo"])
+            return
         est["mid"] = mid
         est["pag"] = c.execute("SELECT pagina_actual FROM materiales WHERE id=?", (mid,)).fetchone()[0] or 1
         mostrar_lector()
@@ -99,14 +120,17 @@ def build(st, recargar, ir_plan=lambda pid: None):
         for m in repo.materiales(c, st.plan_id):
             n_notas = len(repo.notas_material(c, m["id"]))
             ok = disponible(m)
-            sub = f"{m['tipo']} · " + (t("página {a}/{b}", a=m["pagina_actual"], b=m["paginas"]) if m["paginas"] else t("sin empezar")) + \
-                  " · " + tn(n_notas, "{n} nota", "{n} notas") + ("" if ok else t("  ·  ⚠ el archivo no está en este equipo"))
+            if m["tipo"] == "enlace":
+                sub = m["nombre_archivo"]
+            else:
+                sub = f"{m['tipo']} · " + (t("página {a}/{b}", a=m["pagina_actual"], b=m["paginas"]) if m["paginas"] else t("sin empezar")) + \
+                      " · " + tn(n_notas, "{n} nota", "{n} notas") + ("" if ok else t("  ·  ⚠ el archivo no está en este equipo"))
             filas.append(ft.ListTile(
                 leading=ft.Icon(ICONOS.get(m["tipo"], ft.Icons.INSERT_DRIVE_FILE)), title=ft.Text(m["titulo"]),
                 subtitle=ft.Text(sub, size=12),
                 on_click=(lambda _, i=m["id"]: abrir(i)) if ok else (lambda _, i=m["id"]: pedir_archivo(i)),
                 trailing=ft.PopupMenuButton(items=[
-                    ft.PopupMenuItem(text=t("Leer") if ok else t("Vincular el archivo aquí"),
+                    ft.PopupMenuItem(text=(t("Abrir enlace") if m["tipo"] == "enlace" else t("Leer")) if ok else t("Vincular el archivo aquí"),
                                      on_click=(lambda _, i=m["id"]: abrir(i)) if ok else (lambda _, i=m["id"]: pedir_archivo(i))),
                     *([ft.PopupMenuItem(text=t("Convertir en plan de estudio"), on_click=lambda _, m=m: convertir_en_plan(m))]
                       if ok and m["tipo"] in TIPOS_PLAN else []),
@@ -122,6 +146,7 @@ def build(st, recargar, ir_plan=lambda pid: None):
                               on_click=lambda _: picker.pick_files(allowed_extensions=EXT)),
             ft.Row([ruta, ft.OutlinedButton(t("Adjuntar"), on_click=lambda _: adjuntar(ruta.value))], wrap=True),
             solo_enlazar,
+            ft.Row([enlace, enlace_titulo, ft.OutlinedButton(t("＋ Añadir enlace"), icon=ft.Icons.LINK, on_click=adjuntar_enlace)], wrap=True),
             *(filas or [ft.Text(t("Aún no hay material en esta asignatura."))]),
         ]
         st.page.update()
@@ -130,9 +155,12 @@ def build(st, recargar, ir_plan=lambda pid: None):
     def mostrar_lector():
         m = c.execute("SELECT * FROM materiales WHERE id=?", (est["mid"],)).fetchone()
         try:
-            total = mat.num_paginas(m["ruta"])
-            est["pag"] = max(1, min(est["pag"], total))
-            texto = mat.leer_pagina(m["ruta"], est["pag"])
+            if m["tipo"] == "imagen":
+                total, est["pag"], texto = 1, 1, ""
+            else:
+                total = mat.num_paginas(m["ruta"])
+                est["pag"] = max(1, min(est["pag"], total))
+                texto = mat.leer_pagina(m["ruta"], est["pag"])
         except Exception as ex:
             msg(t("No se pudo leer el archivo: {ex}", ex=ex), True)
             return mostrar_lista()
@@ -208,13 +236,14 @@ def build(st, recargar, ir_plan=lambda pid: None):
                     pag_campo, ft.Text(t("de {total}", total=total)),
                     ft.IconButton(ft.Icons.NAVIGATE_NEXT, on_click=lambda _: ir(est["pag"] + 1), disabled=est["pag"] >= total),
                     ft.Text(tn(todas, "{n} nota en total", "{n} notas en total"), size=12)], wrap=True),
-            ft.Row([ft.Container(ft.Text(texto, selectable=True, size=15), padding=12, expand=True,
-                                 border=ft.border.all(1, ft.Colors.OUTLINE), border_radius=8)]),
+            ft.Row([ft.Container(ft.Text(texto, selectable=True, size=15) if m["tipo"] != "imagen" else
+                                 ft.Image(src_base64=base64.b64encode(open(m["ruta"], "rb").read()).decode(), fit=ft.ImageFit.CONTAIN, height=480),
+                                 padding=12, expand=True, border=ft.border.all(1, ft.Colors.OUTLINE), border_radius=8)]),
             ft.Text(t("Tus conclusiones de esta página"), weight=ft.FontWeight.BOLD), *notas,
             nota, ft.Row([tipo_nota, ft.ElevatedButton(t("Guardar"), icon=ft.Icons.SAVE, on_click=guardar_nota)], wrap=True),
-            ft.Row([ft.OutlinedButton(t("Crear tarjetas de esta página"), icon=ft.Icons.STYLE, on_click=tarjetas_offline),
+            *([] if m["tipo"] == "imagen" else [ft.Row([ft.OutlinedButton(t("Crear tarjetas de esta página"), icon=ft.Icons.STYLE, on_click=tarjetas_offline),
                     ft.OutlinedButton(t("✨ Con IA"), on_click=tarjetas_ia),
-                    ft.OutlinedButton(t("✨ Resumir"), on_click=resumir)], wrap=True),
+                    ft.OutlinedButton(t("✨ Resumir"), on_click=resumir)], wrap=True)]),
             *extra, salida_ia,
         ]
         st.page.update()

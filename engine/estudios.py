@@ -53,3 +53,22 @@ def parece_plan(ruta: str) -> bool:
         return len(parse_plan(extract_text(ruta))["unidades"]) >= 2
     except Exception:
         return False
+
+
+def proximo_tema(conn, plan_id: int, hoy: str) -> dict | None:
+    """Lo que toca estudiar ahora: el tema pendiente más atrasado o programado para hoy; si no hay, el siguiente del plan."""
+    f = conn.execute("""SELECT t.id, t.titulo, u.titulo AS unidad, t.fecha_programada FROM temas t JOIN unidades u ON u.id=t.unidad_id
+                        WHERE u.plan_id=? AND t.estado!='completado' AND t.fecha_programada IS NOT NULL AND t.fecha_programada<=?
+                        ORDER BY t.fecha_programada, u.orden, t.orden LIMIT 1""", (plan_id, hoy)).fetchone()
+    return dict(f) if f else resumen(conn, plan_id)["siguiente"]
+
+
+def lectura_pendiente(conn, plan_id: int) -> dict | None:
+    """El documento a medio leer (o el primero sin empezar) para ofrecer «seguir leyendo»."""
+    r = conn.execute("""SELECT id, titulo, pagina_actual, paginas FROM materiales
+                        WHERE plan_id=? AND tipo NOT IN ('enlace','imagen') AND COALESCE(paginas,0)>0 AND pagina_actual<paginas
+                        ORDER BY (pagina_actual>1) DESC, id LIMIT 1""", (plan_id,)).fetchone()
+    if r is None:
+        r = conn.execute("""SELECT id, titulo, pagina_actual, paginas FROM materiales
+                            WHERE plan_id=? AND tipo NOT IN ('enlace','imagen') AND COALESCE(paginas,0)=0 ORDER BY id LIMIT 1""", (plan_id,)).fetchone()
+    return dict(r) if r else None

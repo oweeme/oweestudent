@@ -48,6 +48,13 @@ La pestaña **Plan** abre «Mis estudios»: tus carpetas (Máster, Idiomas, 3.º
 El curso de Aprende Owee es opcional y siempre queda al final. Si adjuntas en *Material* un archivo con módulos y temas (md, txt, pdf, docx), la app ofrece **Crear el plan**;
 también puedes usar el menú ⋮ del material → «Convertir en plan de estudio».
 
+## Estudiar sin perder el hilo
+- **Hoy → «Tu sesión de hoy»**: qué hacer ahora, en orden (repasos, siguiente tema, seguir leyendo) y un botón **▶ Empezar ahora** que arranca el Pomodoro.
+- **Pomodoro que no se detiene**: sigue corriendo al cambiar de pantalla y se ve en una franja arriba (cuenta atrás, línea de avance, pausa y stop).
+- **Material**: además de archivos (PDF, Word, Excel, CSV, texto, **imágenes**), puedes añadir **enlaces**; al tocarlos se abren en tu navegador. Los documentos y las imágenes se leen dentro de la app.
+- **Flecha ← Atrás** arriba en todas las pantallas; las pestañas principales (Hoy, Plan, Material, Repaso, Más) empiezan de nuevo.
+- El curso y el glosario de Owee se regeneran desde el repositorio del idioma con `tools/owee_curso.py` y `tools/owee_sincronizar.py`.
+
 ## Créditos
 La lengua Owee (glosario y léxico) es de Hector Martinez, CC BY-SA 4.0; la fuente Owee Sans (`assets/fonts`) es SIL OFL 1.1 (texto junto a ella); el conversor romano ↔ escritura se adapta de su código MIT.
 

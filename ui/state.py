@@ -1,5 +1,11 @@
 from database import repo
+import threading
+import time
+
 from database.db import init_db
+from engine import nivel as niveles
+from engine.pomodoro import Pomodoro
+from i18n import t
 from owee_curso.curso import TITULO_PLAN as TITULO_CURSO_OWEE
 
 
@@ -18,6 +24,9 @@ class AppState:
         self.abrir_lectura = None      # id de lectura: lo consume la pantalla de Lecturas
         self.plan_abierto = False      # Plan: False = lista «Mis estudios»; True = temario completo del plan activo
         self.pestana_practica = None   # pestaña de Práctica a abrir (la consume la pantalla)
+        self.pomodoro = Pomodoro()
+        self.al_tick = []              # funciones que redibujan el reloj (barra global y pantalla Estudiar)
+        self._ticker = None
         self.elegir_perfil(self.perfil_id)
 
     def elegir_perfil(self, perfil_id):
@@ -34,6 +43,42 @@ class AppState:
         propios = [p for p in planes if p["titulo"] != TITULO_CURSO_OWEE]
         elegido = (propios or list(planes) or [None])[0]
         return elegido["id"] if elegido else None
+
+    # ---------- Pomodoro global ----------
+    def iniciar_pomodoro(self, tema_id, titulo: str) -> None:
+        """Empieza un Pomodoro sobre un tema; sigue corriendo aunque cambies de pantalla."""
+        mins_estudio, mins_descanso = niveles.ajustes(self.nivel())["pomodoro"]     # un niño de primaria no estudia 25 min seguidos
+        self.tema_id, self.tema_titulo = tema_id, titulo
+        self.pomodoro.iniciar(tema_id, titulo, mins_estudio, mins_descanso)
+        self._arrancar_ticker()
+        self.redibujar_pomodoro()
+
+    def redibujar_pomodoro(self) -> None:
+        for f in list(self.al_tick):
+            try:
+                f()
+            except Exception:       # una pantalla que ya no existe no debe parar el reloj
+                pass
+        try:
+            self.page.update()
+        except Exception:
+            pass
+
+    def _arrancar_ticker(self) -> None:
+        if self._ticker is not None and self._ticker.is_alive():
+            return
+
+        def bucle():
+            while self.pomodoro.activo:
+                for ev in self.pomodoro.avanzar():
+                    if ev[0] == "estudio_completo":
+                        repo.registrar_sesion(self.conn, ev[1], ev[2])
+                        self.toast(t("Pomodoro registrado (+{n} min)", n=ev[2]))
+                self.redibujar_pomodoro()
+                time.sleep(1)
+            self.redibujar_pomodoro()
+        self._ticker = threading.Thread(target=bucle, daemon=True)
+        self._ticker.start()
 
     def nivel(self) -> str:
         """Nivel del perfil activo (primaria, secundaria, adolescente, universitario, adulto)."""

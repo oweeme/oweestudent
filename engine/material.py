@@ -6,7 +6,21 @@ from pathlib import Path
 
 from database.db import DATOS
 
-TIPOS = {"pdf": "pdf", "docx": "docx", "xlsx": "xlsx", "csv": "csv", "txt": "txt", "md": "md"}
+TIPOS = {"pdf": "pdf", "docx": "docx", "xlsx": "xlsx", "csv": "csv", "txt": "txt", "md": "md",
+         "png": "imagen", "jpg": "imagen", "jpeg": "imagen", "webp": "imagen", "gif": "imagen"}
+
+
+def normalizar_url(texto: str) -> str | None:
+    """«ejemplo.com/pagina» → «https://ejemplo.com/pagina». None si no parece un enlace."""
+    import re
+    texto = (texto or "").strip()
+    if not texto or " " in texto:
+        return None
+    if re.match(r"^https?://\S+\.\S+", texto, re.I):
+        return texto
+    if re.match(r"^[\w-]+(\.[\w-]+)+(/\S*)?$", texto) and texto.rsplit(".", 1)[-1].split("/")[0].lower() not in (*TIPOS, "doc", "xls", "ppt", "pptx"):
+        return "https://" + texto
+    return None
 CARPETA = DATOS / "materiales"
 _cache: dict = {}
 

@@ -25,9 +25,11 @@ def barra_progreso(valor, etiqueta=""):
 
 def tile_recurso(r):
     sub = r["descripcion"] if r["descripcion"] else None
+    texto = r["contenido"].strip()
+    enlace = texto if texto.lower().startswith(("http://", "https://")) else None      # un recurso que es un enlace se abre con un clic
     return ft.ListTile(dense=True, leading=ft.Icon(ICONOS_RECURSO.get(r["tipo"], ft.Icons.LINK)),
-                       title=ft.Text(r["contenido"], selectable=True, size=13),
-                       subtitle=ft.Text(sub, size=12) if sub else None)
+                       title=ft.Text(texto, selectable=enlace is None, size=13, color=ft.Colors.PRIMARY if enlace else None),
+                       subtitle=ft.Text(sub, size=12) if sub else None, url=enlace, url_target=ft.UrlTarget.BLANK if enlace else None)
 
 
 def ancho_dialogo(page, ideal: int = 380) -> int:

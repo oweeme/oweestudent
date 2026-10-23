@@ -5,6 +5,8 @@ import flet as ft
 from database import repo
 from owee_curso import curso as curso_owee
 from engine import ai
+from engine import estudios as estudios_motor
+from engine import nivel as niveles
 from engine import retos as retos_motor
 from engine import sprints as sprints_motor
 from i18n import marcar, t, tn
@@ -36,8 +38,44 @@ def bienvenida(st, ir_asistente, ir_importar, ir_owee, curso_plan):
         spacing=10, scroll=ft.ScrollMode.AUTO, expand=True, horizontal_alignment=ft.CrossAxisAlignment.STRETCH)
 
 
+def sesion_de_hoy(st, n_rev, ir_repaso, ir_a_estudio, ir_material, hoy):
+    """Lo primero que ves al abrir: qué hacer AHORA, en orden, con un solo botón para empezar."""
+    c, pom = st.conn, st.pomodoro
+    if pom.activo:
+        return tarjeta(t("Sesión en curso"), ft.Text(f"{t(pom.fase)} · {pom.texto()} — {pom.titulo}", size=13),
+                       ft.ElevatedButton(t("Volver a estudiar"), icon=ft.Icons.TIMER, on_click=lambda _: ir_a_estudio()))
+    tema = estudios_motor.proximo_tema(c, st.plan_id, hoy.isoformat())
+    lect = estudios_motor.lectura_pendiente(c, st.plan_id)
+    mins = niveles.ajustes(st.nivel())["pomodoro"][0]
+    filas = []
+    if n_rev:
+        filas.append(ft.ListTile(dense=True, leading=ft.Icon(ft.Icons.REPLAY), title=ft.Text(t("Repasa tus tarjetas: {n} pendientes", n=n_rev), size=13),
+                                 on_click=lambda _: ir_repaso()))
+    if tema:
+        filas.append(ft.ListTile(dense=True, leading=ft.Icon(ft.Icons.SCHOOL), title=ft.Text(t("Estudia: {tema}", tema=tema["titulo"]), size=13),
+                                 subtitle=ft.Text(tema["unidad"], size=11)))
+    if lect:
+        def leer(_):
+            st.abrir_material = (lect["id"], lect["pagina_actual"] or 1)
+            ir_material()
+        filas.append(ft.ListTile(dense=True, leading=ft.Icon(ft.Icons.MENU_BOOK), title=ft.Text(t("Sigue leyendo: {titulo}", titulo=lect["titulo"]), size=13),
+                                 subtitle=ft.Text(t("página {a}/{b}", a=lect["pagina_actual"] or 1, b=lect["paginas"]) if lect["paginas"] else "", size=11),
+                                 on_click=leer))
+    if not filas:
+        return tarjeta(t("Tu sesión de hoy"), ft.Text(t("Hoy no tienes nada pendiente. Añade temas en «Plan» o crea un reto."), size=13))
+
+    def empezar(_):
+        if tema:
+            st.iniciar_pomodoro(tema["id"], tema["titulo"])
+            ir_a_estudio()
+        else:
+            ir_repaso()
+    return tarjeta(t("Tu sesión de hoy"), *filas,
+                   ft.ElevatedButton(t("▶ Empezar ahora ({m} min)", m=mins) if tema else t("▶ Empezar a repasar"), icon=ft.Icons.PLAY_ARROW, on_click=empezar))
+
+
 def build(st, ir_a_estudio, recargar, ir_repaso=lambda: None, ir_entregas=lambda: None, ir_sprint=lambda: None, ir_retos=lambda: None,
-          ir_asistente=lambda: None, ir_importar=lambda: None, ir_owee=lambda: None):
+          ir_asistente=lambda: None, ir_importar=lambda: None, ir_owee=lambda: None, ir_material=lambda: None):
     c, hoy = st.conn, date.today()
     todos = repo.planes(c, st.perfil_id)
     curso_plan = next((p for p in todos if p["titulo"] == curso_owee.TITULO_PLAN), None)
@@ -105,6 +143,7 @@ def build(st, ir_a_estudio, recargar, ir_repaso=lambda: None, ir_entregas=lambda
                                   ft.ListTile(dense=True, title=ft.Text(t("Lección {id} — {titulo}", id=sig["id"], titulo=sig["titulo"]), size=13),
                                               on_click=lambda _: ir_owee())))
     return ft.Column([ft.Text(f"{t(dia)} {hoy.isoformat()}", theme_style=ft.TextThemeStyle.HEADLINE_SMALL),
+                      sesion_de_hoy(st, n_rev, ir_repaso, ir_a_estudio, ir_material, hoy),
                       tarjeta(t("Esta semana"), barra_progreso(min(1, hs / meta), t("{h:.1f} de {meta:g} h ·", h=hs, meta=meta)),
                               ft.TextButton(tn(n_rev, "🔁 {n} repaso pendiente hoy → empezar", "🔁 {n} repasos pendientes hoy → empezar")
                                             if n_rev else t("🔁 Repasos al día ✅"),
