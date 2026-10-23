@@ -42,17 +42,17 @@ No existe en Android/iOS (no permiten ejecutar programas descargados): allí se 
 En Linux necesita `libgomp1` y `libssl3` (casi siempre ya instaladas; si faltan, la app te dice el comando exacto).
 Sin IA también puedes usar «Copiar prompt» con tu chat favorito (Claude, ChatGPT…) y pegar la respuesta al importar.
 
-## Mis estudios (carpetas → planes → temario)
-La pestaña **Plan** abre «Mis estudios»: tus carpetas (Máster, Idiomas, 3.º de secundaria…) con sus planes, el avance de cada uno y el siguiente tema.
-**Abrir plan completo** muestra todo el temario (con la flecha ← vuelves a la lista); **Seguir estudiando** salta al siguiente tema pendiente.
-El curso de Aprende Owee es opcional y siempre queda al final. Si adjuntas en *Material* un archivo con módulos y temas (md, txt, pdf, docx), la app ofrece **Crear el plan**;
-también puedes usar el menú ⋮ del material → «Convertir en plan de estudio».
+## Mis estudios (carpetas → estudio → todo lo suyo)
+La barra principal es **Hoy · Estudios · Repaso · Más**. **Estudios** muestra tus carpetas (Máster, Idiomas, Programación…) con sus estudios, el avance de cada uno y el siguiente tema.
+Al entrar en un estudio, todo queda dentro de él, con pestañas: **Temario · Material · Estudiar · Repaso**. El Material (PDF, Word, Excel, imágenes, enlaces), el Pomodoro, tus apuntes y las tarjetas son de ESE estudio.
+La flecha ← de la cabecera vuelve a «Estudios» para elegir otro. **Aprende Owee** es un estudio más (con su pestaña extra «Curso») y siempre queda al final. «Repaso» de la barra reúne las tarjetas de todos tus estudios.
+Si adjuntas en *Material* un archivo con módulos y temas (md, txt, pdf, docx), la app ofrece **Crear el plan**.
 
 ## Estudiar sin perder el hilo
 - **Hoy → «Tu sesión de hoy»**: qué hacer ahora, en orden (repasos, siguiente tema, seguir leyendo) y un botón **▶ Empezar ahora** que arranca el Pomodoro.
 - **Pomodoro que no se detiene**: sigue corriendo al cambiar de pantalla y se ve en una franja arriba (cuenta atrás, línea de avance, pausa y stop).
-- **Material**: además de archivos (PDF, Word, Excel, CSV, texto, **imágenes**), puedes añadir **enlaces**; al tocarlos se abren en tu navegador. Los documentos y las imágenes se leen dentro de la app.
-- **Flecha ← Atrás** arriba en todas las pantallas; las pestañas principales (Hoy, Plan, Material, Repaso, Más) empiezan de nuevo.
+- **Material** (pestaña de cada estudio): además de archivos (PDF, Word, Excel, CSV, texto, **imágenes**), puedes añadir **enlaces**; al tocarlos se abren en tu navegador. Los documentos y las imágenes se leen dentro de la app.
+- **Flecha ← Atrás** arriba en todas las pantallas; las pestañas principales (Hoy, Estudios, Repaso, Más) empiezan de nuevo.
 - El curso y el glosario de Owee se regeneran desde el repositorio del idioma con `tools/owee_curso.py` y `tools/owee_sincronizar.py`.
 
 ## Créditos

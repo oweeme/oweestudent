@@ -171,11 +171,11 @@ def guardar_nota(conn, tema_id, resumen, calidad):
     return e["proximo"]
 
 
-def repasos_pendientes(conn, perfil_id=1):
+def repasos_pendientes(conn, perfil_id=1, plan_id=None):
     return conn.execute("""SELECT n.*, t.titulo tema FROM notas n JOIN temas t ON t.id=n.tema_id
         JOIN unidades u ON u.id=t.unidad_id JOIN planes p ON p.id=u.plan_id
-        WHERE p.perfil_id=? AND n.proximo_repaso<=date('now','localtime')
-        ORDER BY n.proximo_repaso""", (perfil_id,)).fetchall()
+        WHERE p.perfil_id=? AND (? IS NULL OR p.id=?) AND n.proximo_repaso<=date('now','localtime')
+        ORDER BY n.proximo_repaso""", (perfil_id, plan_id, plan_id)).fetchall()
 
 
 def repasar(conn, nota_id, calidad):
@@ -265,11 +265,12 @@ def crear_tarjetas(conn, tema_id, pares, origen) -> int:
     return n
 
 
-def tarjetas_pendientes(conn, perfil_id=1):
+def tarjetas_pendientes(conn, perfil_id=1, plan_id=None):
+    """Tarjetas por repasar hoy; con plan_id, solo las de ese estudio."""
     return conn.execute("""SELECT k.*, t.titulo tema FROM tarjetas k JOIN temas t ON t.id=k.tema_id
         JOIN unidades u ON u.id=t.unidad_id JOIN planes p ON p.id=u.plan_id
-        WHERE p.perfil_id=? AND k.proximo_repaso<=date('now','localtime')
-        ORDER BY k.proximo_repaso, k.id""", (perfil_id,)).fetchall()
+        WHERE p.perfil_id=? AND (? IS NULL OR p.id=?) AND k.proximo_repaso<=date('now','localtime')
+        ORDER BY k.proximo_repaso, k.id""", (perfil_id, plan_id, plan_id)).fetchall()
 
 
 def tarjetas_tema(conn, tema_id):

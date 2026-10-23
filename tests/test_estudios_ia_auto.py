@@ -8,7 +8,6 @@ from owee_curso import curso
 from ui.state import AppState
 from ui.views import estudios as vista_estudios
 from ui.views import material as vista_material
-from ui.views import plan as vista_plan
 
 PLAN_MD = """# Global Master
 ## SEMESTRE 1: BASE
@@ -92,16 +91,44 @@ def test_la_lista_muestra_carpetas_y_planes_y_abre_el_plan_elegido(st):
     assert abiertos == [pid] and estudiados[0][0] == pid and estudiados[0][2] == "Geopolítica"
 
 
-def test_el_plan_abierto_tiene_boton_para_volver_a_mis_estudios(st):
+def test_el_espacio_del_estudio_muestra_carpeta_pestanas_y_vuelve_a_mis_estudios(st):
+    from ui.views import espacio
     k = repo.crear_carpeta(st.conn, "Máster", st.perfil_id)
     st.plan_id = repo.importar_texto(st.conn, PLAN_MD, "x.md", None, st.perfil_id, carpeta_id=k)
-    st.plan_abierto = True
-    recargas = []
-    cuerpo = vista_plan.build(st, lambda: None, lambda: recargas.append(1))
-    assert "📁 Máster" in _textos(cuerpo) and "Módulo 1: Estrategia" in _textos(cuerpo)
-    volver = next(b for b in _todos(cuerpo, ft.IconButton) if b.tooltip == "Mis estudios")
-    volver.on_click(None)
-    assert st.plan_abierto is False and recargas == [1]
+    st.espacio_tab = "temario"
+    cambios, salidas = [], []
+    cuerpo = espacio.build(st, lambda tab: ft.Text(f"contenido de {tab}"), cambios.append, lambda: salidas.append(1))
+    txt = _textos(cuerpo)
+    assert "📁 Máster" in txt and "Global Master" in txt and "contenido de temario" in txt
+    botones = {b.text: b for b in _todos(cuerpo, (ft.FilledButton, ft.OutlinedButton))}
+    assert list(botones) == ["Temario", "Material", "Estudiar", "Repaso"]            # sin «Curso»: no es el de Owee
+    botones["Material"].on_click(None)
+    assert cambios == ["material"]
+    next(b for b in _todos(cuerpo, ft.IconButton) if b.tooltip == "Mis estudios").on_click(None)
+    assert salidas == [1]
+
+
+def test_el_estudio_de_owee_suma_la_pestana_curso(st):
+    from ui.views import espacio
+    st.plan_id = curso.crear_plan_del_curso(st.conn, st.perfil_id)
+    st.espacio_tab = "curso"
+    cuerpo = espacio.build(st, lambda tab: ft.Text(tab), lambda t_: None, lambda: None)
+    assert [b.text for b in _todos(cuerpo, (ft.FilledButton, ft.OutlinedButton))][0] == "Curso"
+    assert "curso" in _textos(cuerpo)
+
+
+def test_el_repaso_de_un_estudio_solo_trae_sus_tarjetas(st):
+    otro = repo.crear_plan(st.conn, "Idiomas", st.perfil_id)
+    u2 = repo.agregar_unidad(st.conn, otro, "U")
+    t2 = repo.agregar_tema(st.conn, u2, "Vocabulario")
+    u1 = repo.agregar_unidad(st.conn, st.plan_id if hasattr(st, "plan_id") and st.plan_id else repo.crear_plan(st.conn, "Máster", st.perfil_id), "U")
+    t1 = repo.agregar_tema(st.conn, u1, "Tema")
+    repo.crear_tarjeta(st.conn, t1, "¿P1?", "R1")
+    repo.crear_tarjeta(st.conn, t2, "¿P2?", "R2")
+    plan1 = st.conn.execute("SELECT plan_id FROM unidades WHERE id=?", (u1,)).fetchone()[0]
+    assert len(repo.tarjetas_pendientes(st.conn, st.perfil_id)) == 2
+    assert [k["pregunta"] for k in repo.tarjetas_pendientes(st.conn, st.perfil_id, plan1)] == ["¿P1?"]
+    assert [k["pregunta"] for k in repo.tarjetas_pendientes(st.conn, st.perfil_id, otro)] == ["¿P2?"]
 
 
 def test_un_archivo_con_modulos_se_convierte_en_plan_en_la_misma_carpeta(st, tmp_path):

@@ -22,7 +22,7 @@ class AppState:
         self.tema_titulo = ""
         self.abrir_material = None     # (id de material, página): lo consume la pantalla de Material
         self.abrir_lectura = None      # id de lectura: lo consume la pantalla de Lecturas
-        self.plan_abierto = False      # Plan: False = lista «Mis estudios»; True = temario completo del plan activo
+        self.espacio_tab = "temario"   # pestaña abierta dentro del estudio activo (temario, material, estudiar, repaso, curso)
         self.pestana_practica = None   # pestaña de Práctica a abrir (la consume la pantalla)
         self.pomodoro = Pomodoro()
         self.al_tick = []              # funciones que redibujan el reloj (barra global y pantalla Estudiar)

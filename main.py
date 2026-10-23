@@ -8,12 +8,13 @@ from database import repo
 from database.db import DB_PATH
 from engine import ai, enlace, sync
 from engine import nivel as niveles
+from owee_curso import curso as curso_owee
 from engine.entorno import restaurar_librerias
 from i18n import marcar, t
 from ui import tema
 from ui.components import pomodoro_barra
 from ui.state import AppState
-from ui.views import (ajustes, aprende_owee, asistente, estudio, estudios, hoy, entregas, escritor, exportar, importar, lecturas, login, material, plan,
+from ui.views import (ajustes, aprende_owee, asistente, espacio, estudio, estudios, hoy, entregas, escritor, exportar, importar, lecturas, login, material, plan,
                       planes, practica, preguntar, repaso, retos, sincronizar, sprint, stats)
 
 TEMAS = {"dark": ft.ThemeMode.DARK, "light": ft.ThemeMode.LIGHT, "system": ft.ThemeMode.SYSTEM}
@@ -53,12 +54,11 @@ def main(page: ft.Page):
         cuerpo = ft.Container(expand=True, alignment=ft.alignment.top_left)
         MAS = -1                 # «pantalla» del menú Más dentro del historial
         historial, actual = [], {"vista": None}
-        HOY, PLAN, MATERIAL, REPASO, ESTUDIAR, PLANES, IMPORTAR, METRICAS, SINCRONIZAR, AJUSTES, OWEE, ASISTENTE, LECTURAS, PREGUNTAR, PRACTICA, EXPORTAR, ENTREGAS, ESCRITOR, RETOS, SPRINT = range(20)
-        PRINCIPALES = [HOY, PLAN, MATERIAL, REPASO]      # barra inferior / barra lateral (+ «Más»)
+        HOY, PLAN, MATERIAL, REPASO, ESTUDIAR, PLANES, IMPORTAR, METRICAS, SINCRONIZAR, AJUSTES, OWEE, ASISTENTE, LECTURAS, PREGUNTAR, PRACTICA, EXPORTAR, ENTREGAS, ESCRITOR, RETOS, SPRINT, ESPACIO = range(21)
+        PRINCIPALES = [HOY, PLAN, REPASO]      # barra inferior / barra lateral (+ «Más»). Material, Pomodoro y lectura viven DENTRO de cada estudio
         SIN_PLAN_OK = (HOY, PLAN, PLANES, IMPORTAR, ESTUDIAR, REPASO, METRICAS, SINCRONIZAR, AJUSTES, OWEE, ASISTENTE, PREGUNTAR, PRACTICA, EXPORTAR, ENTREGAS, ESCRITOR, RETOS, SPRINT)
         SECUNDARIAS = [(ENTREGAS, t("Entregas y exámenes"), ft.Icons.EVENT_AVAILABLE),
                        (ASISTENTE, t("Asistente de objetivo"), ft.Icons.FLAG),
-                       (ESTUDIAR, t("Estudiar (Pomodoro y tarjetas)"), ft.Icons.TIMER),
                        (SPRINT, t("Sprint de 7 días"), ft.Icons.BOLT),
                        (RETOS, t("Retos prácticos"), ft.Icons.EMOJI_EVENTS),
                        (ESCRITOR, t("Escritor (monografías, tesis, libros)"), ft.Icons.EDIT_DOCUMENT),
@@ -77,9 +77,9 @@ def main(page: ft.Page):
         vistas = {
             HOY: lambda: hoy.build(st, lambda: ir(ESTUDIAR), lambda: ir(HOY), lambda: ir(REPASO), lambda: ir(ENTREGAS), lambda: ir(SPRINT), lambda: ir(RETOS),
                      lambda: ir(ASISTENTE), lambda: ir(IMPORTAR), lambda: ir(OWEE), lambda: ir(MATERIAL)),
-            PLAN: lambda: (plan.build(st, lambda: ir(ESTUDIAR), lambda: ir(PLAN), lambda: ir(MATERIAL)) if st.plan_abierto else
-                           estudios.build(st, abrir_plan, estudiar_tema, lambda: ir(PLAN), lambda: ir(IMPORTAR))),
-            MATERIAL: lambda: material.build(st, lambda: ir(MATERIAL), lambda pid: abrir_plan(pid)),
+            PLAN: lambda: estudios.build(st, abrir_plan, estudiar_tema, lambda: ir(PLAN), lambda: ir(IMPORTAR)),
+            ESPACIO: lambda: espacio.build(st, contenido_espacio, pestana, lambda: ir(PLAN)),
+            MATERIAL: lambda: material.build(st, lambda: ir(ESPACIO), abrir_plan),
             REPASO: lambda: repaso.build(st),
             ESTUDIAR: lambda: estudio.build(st),
             PLANES: lambda: planes.build(st, lambda: mostrar_app(PLANES), mostrar_login),
@@ -95,13 +95,12 @@ def main(page: ft.Page):
             EXPORTAR: lambda: exportar.build(st),
             LECTURAS: lambda: lecturas.build(st, lambda: ir(LECTURAS), lambda mid, pag: (setattr(st, "abrir_material", (mid, pag)), ir(MATERIAL))),
             PREGUNTAR: lambda: preguntar.build(st, lambda: ir(MATERIAL), lambda: ir(LECTURAS)),
-            OWEE: lambda: aprende_owee.build(st, lambda: ir(OWEE)),
+            OWEE: lambda: ver_owee(),
             AJUSTES: lambda: ajustes.build(st, lambda: ir(HOY), lambda: mostrar_app(AJUSTES)),
         }
-        ETIQ = {HOY: (t("Hoy"), ft.Icons.TODAY), PLAN: (t("Plan"), ft.Icons.SCHOOL),
-                MATERIAL: (t("Material"), ft.Icons.MENU_BOOK), REPASO: (t("Repaso"), ft.Icons.REPLAY)}
+        ETIQ = {HOY: (t("Hoy"), ft.Icons.TODAY), PLAN: (t("Estudios"), ft.Icons.SCHOOL), REPASO: (t("Repaso"), ft.Icons.REPLAY)}
 
-        GRUPOS = [(marcar("Estudiar"), (ENTREGAS, ESTUDIAR, PRACTICA, SPRINT, RETOS)),
+        GRUPOS = [(marcar("Estudiar"), (ENTREGAS, PRACTICA, SPRINT, RETOS)),
                   (marcar("Planificar"), (ASISTENTE, IMPORTAR)),
                   (marcar("Investigar y escribir"), (ESCRITOR, LECTURAS, PREGUNTAR)),
                   (marcar("Idiomas"), (OWEE,)),
@@ -120,16 +119,50 @@ def main(page: ft.Page):
             return ft.Column([ft.Text(t("Más"), theme_style=ft.TextThemeStyle.HEADLINE_SMALL), *filas],
                              spacing=2, scroll=ft.ScrollMode.AUTO, expand=True)
 
+        def pestana(nombre):
+            st.espacio_tab = nombre
+            ir(ESPACIO)
+
         def abrir_plan(plan_id):
-            """Muestra el temario completo de ese plan (y lo deja como el plan activo)."""
-            st.plan_id, st.plan_abierto = plan_id, True
-            ir(PLAN)
+            """Entra al espacio de ese estudio (y lo deja como el estudio activo)."""
+            st.plan_id = plan_id
+            titulo = st.conn.execute("SELECT titulo FROM planes WHERE id=?", (plan_id,)).fetchone()["titulo"]
+            st.espacio_tab = espacio.pestanas_de(titulo)[0]
+            ir(ESPACIO)
 
         def estudiar_tema(plan_id, tema_id, titulo):
             st.plan_id, st.tema_id, st.tema_titulo = plan_id, tema_id, titulo
-            ir(ESTUDIAR)
+            pestana("estudiar")
+
+        def abrir_curso_owee():
+            """Aprende Owee es un estudio más: si ya está añadido se abre su espacio (Curso, Material, Estudiar, Repaso)."""
+            p = curso_owee.plan_del_curso(st.conn, st.perfil_id)
+            if p is None:
+                return None
+            st.plan_id, st.espacio_tab = p["id"], "curso"
+            return True
+
+        def ver_owee():
+            if abrir_curso_owee():
+                return vistas[ESPACIO]()
+            return aprende_owee.build(st, lambda: ir(OWEE))        # aún no añadido: pantalla de «Empezar el curso»
+
+        def contenido_espacio(tab):
+            return {"curso": lambda: aprende_owee.build(st, lambda: ir(ESPACIO)),
+                    "temario": lambda: plan.build(st, lambda: pestana("estudiar"), lambda: ir(ESPACIO), lambda: pestana("material")),
+                    "material": lambda: material.build(st, lambda: ir(ESPACIO), abrir_plan),
+                    "estudiar": lambda: estudio.build(st),
+                    "repaso": lambda: repaso.build(st, solo_plan=True)}[tab]()
+
+        def ir_pomodoro():
+            """La franja del Pomodoro lleva al estudio al que pertenece el tema en curso."""
+            fila = st.conn.execute("""SELECT u.plan_id FROM temas t JOIN unidades u ON u.id=t.unidad_id WHERE t.id=?""", (st.pomodoro.tema_id,)).fetchone()
+            if fila:
+                st.plan_id = fila["plan_id"]
+            pestana("estudiar")
 
         def seleccionar(i):
+            i = PLAN if i == ESPACIO else i                    # dentro de un estudio sigue marcada «Estudios»
             k = PRINCIPALES.index(i) if i in PRINCIPALES else len(PRINCIPALES)
             rail.selected_index = bar.selected_index = k
 
@@ -152,6 +185,12 @@ def main(page: ft.Page):
             page.update()
 
         def ir(i, guardar=True):
+            if i in (MATERIAL, ESTUDIAR):                      # Material y Estudiar son pestañas del estudio activo
+                if st.plan_id:
+                    st.espacio_tab = "material" if i == MATERIAL else "estudiar"
+                i = ESPACIO if st.plan_id else PLAN
+            elif i == ESPACIO and not st.plan_id:
+                i = PLAN
             anotar(i, guardar)
             cuerpo.content = vistas[i]() if (st.plan_id or i in SIN_PLAN_OK) else ft.Text(
                 t("Aún no hay asignatura. Ve a «Más → Carpetas y asignaturas» o «Importar plan»."))
@@ -162,8 +201,6 @@ def main(page: ft.Page):
             k = e.control.selected_index
             historial.clear()                  # tocar una pestaña principal empieza de nuevo (sin flecha atrás)
             actual["vista"] = None
-            if k < len(PRINCIPALES) and PRINCIPALES[k] == PLAN:
-                st.plan_abierto = False        # tocar «Plan» lleva siempre a «Mis estudios»
             ir(PRINCIPALES[k]) if k < len(PRINCIPALES) else ir_mas()
 
         rail = ft.NavigationRail(
@@ -177,7 +214,7 @@ def main(page: ft.Page):
         divisor = ft.VerticalDivider(width=1)
         atras = ft.IconButton(ft.Icons.ARROW_BACK, tooltip=t("Atrás"), visible=False, on_click=lambda _: volver())
         st.al_tick.clear()
-        franja = ft.Row([atras, ft.Container(pomodoro_barra.crear(st, lambda: ir(ESTUDIAR)), expand=True)],
+        franja = ft.Row([atras, ft.Container(pomodoro_barra.crear(st, ir_pomodoro), expand=True)],
                         vertical_alignment=ft.CrossAxisAlignment.CENTER)
 
         def layout(_=None):
