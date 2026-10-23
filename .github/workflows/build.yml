@@ -74,7 +74,16 @@ jobs:
       - name: Versión
         run: echo "VERSION=$(if [[ '${{ github.ref_type }}' == 'tag' ]]; then echo '${{ github.ref_name }}' | sed 's/^v//'; else python3 -c 'import app_info;print(app_info.VERSION)'; fi)" >> $GITHUB_ENV
       - run: pip install -r requirements.txt pyinstaller
-      - run: flet pack main.py --name OweeStudent -y -i assets/icon_512.png --add-data "assets:assets" --product-name OweeStudent --bundle-id app.oweestudent
+      - name: Icono .icns (macOS no acepta .png)
+        run: |
+          mkdir OweeStudent.iconset
+          for t in 16 32 64 128 256 512; do sips -z $t $t assets/icon_512.png --out OweeStudent.iconset/icon_${t}x${t}.png >/dev/null; done
+          cp OweeStudent.iconset/icon_32x32.png OweeStudent.iconset/icon_16x16@2x.png
+          cp OweeStudent.iconset/icon_64x64.png OweeStudent.iconset/icon_32x32@2x.png
+          cp OweeStudent.iconset/icon_256x256.png OweeStudent.iconset/icon_128x128@2x.png
+          cp OweeStudent.iconset/icon_512x512.png OweeStudent.iconset/icon_256x256@2x.png
+          iconutil -c icns OweeStudent.iconset -o assets/icon.icns
+      - run: flet pack main.py --name OweeStudent -y -i assets/icon.icns --add-data "assets:assets" --product-name OweeStudent --bundle-id app.oweestudent
       - name: "Imagen .dmg (sin firmar, la primera vez: clic derecho → Abrir)"
         run: packaging/macos/build_dmg.sh dist/OweeStudent.app "$VERSION" "OweeStudent-${VERSION}-macos-${{ matrix.arch }}.dmg"
       - uses: actions/upload-artifact@v4
