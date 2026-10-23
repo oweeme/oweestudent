@@ -1,5 +1,4 @@
 import threading
-import time
 
 import flet as ft
 
@@ -14,35 +13,42 @@ FASES = (marcar("Estudio"), marcar("Descanso"))   # nombres de fase (se traducen
 def build(st):
     """Pomodoro con registro automático + Feynman (escribir antes de repasar)."""
     tema = ft.Text(st.tema_titulo or t("Elige un tema desde «Plan» u «Hoy»"), weight=ft.FontWeight.BOLD)
-    mins_estudio, mins_descanso = niveles.ajustes(st.nivel())["pomodoro"]      # un niño de primaria no estudia 25 min seguidos
-    fases = (("Estudio", mins_estudio), ("Descanso", mins_descanso))
-    reloj = ft.Text(f"{mins_estudio:02d}:00", size=48)
-    fase = ft.Text(t("Estudio"))
-    corriendo = {"on": False, "gen": 0}
+    pom = st.pomodoro
+    reloj = ft.Text(pom.texto() if pom.activo else f"{niveles.ajustes(st.nivel())['pomodoro'][0]:02d}:00", size=48)
+    fase = ft.Text(t(pom.fase) if pom.activo else t("Estudio"))
+    linea = ft.ProgressBar(value=pom.avance(), height=8)
+    btn_pausa = ft.OutlinedButton(t("Pausar"), icon=ft.Icons.PAUSE)
 
-    def ciclo(gen):
-        for nombre, mins in fases:
-            fase.value = t(nombre)
-            for s in range(mins * 60, -1, -1):
-                if not corriendo["on"] or corriendo["gen"] != gen:
-                    return
-                reloj.value = f"{s // 60:02d}:{s % 60:02d}"
-                st.page.update()
-                time.sleep(1)
-            if nombre == "Estudio":
-                repo.registrar_sesion(st.conn, st.tema_id, mins_estudio)
-                st.toast(t("Pomodoro registrado (+{n} min)", n=mins_estudio))
-        corriendo["on"] = False
+    def dibujar():
+        p = st.pomodoro
+        if p.activo:
+            reloj.value, fase.value, linea.value = p.texto(), t(p.fase), p.avance()
+            tema.value = p.titulo or tema.value
+        else:
+            reloj.value, linea.value = f"{niveles.ajustes(st.nivel())['pomodoro'][0]:02d}:00", 0
+        btn_pausa.text = t("Reanudar") if p.pausado else t("Pausar")
+        btn_pausa.icon = ft.Icons.PLAY_ARROW if p.pausado else ft.Icons.PAUSE
+
+    st.al_tick[:] = [f for f in st.al_tick if getattr(f, "_global", False)]      # deja solo el redibujado de la barra global
+    st.al_tick.append(dibujar)
 
     def iniciar(_):
         if not st.tema_id:
             st.toast(t("Primero elige un tema"))
             return
-        corriendo["on"], corriendo["gen"] = True, corriendo["gen"] + 1
-        threading.Thread(target=ciclo, args=(corriendo["gen"],), daemon=True).start()
+        st.iniciar_pomodoro(st.tema_id, st.tema_titulo)
+
+    def pausar(_):
+        p = st.pomodoro
+        p.reanudar() if p.pausado else p.pausar()
+        st.redibujar_pomodoro()
 
     def parar(_):
-        corriendo["on"] = False
+        st.pomodoro.detener()
+        st.redibujar_pomodoro()
+
+    btn_pausa.on_click = pausar
+    dibujar()
 
     resumen = ft.TextField(label=t("Explícalo con tus palabras (Feynman / Active Recall)"),
                            multiline=True, min_lines=5)
@@ -135,9 +141,10 @@ def build(st):
 
     return ft.Column([
         ft.Text(t("Estudiar"), theme_style=ft.TextThemeStyle.HEADLINE_SMALL), tema,
-        ft.Row([reloj, fase], alignment=ft.MainAxisAlignment.START),
-        ft.Row([ft.ElevatedButton(t("Iniciar Pomodoro"), icon=ft.Icons.PLAY_ARROW, on_click=iniciar),
-                ft.OutlinedButton(t("Detener"), icon=ft.Icons.STOP, on_click=parar)]),
+        ft.Row([reloj, fase], alignment=ft.MainAxisAlignment.START), linea,
+        ft.Text(t("Puedes ir a leer o a otra pantalla: el reloj sigue corriendo y se ve arriba."), size=12),
+        ft.Row([ft.ElevatedButton(t("Iniciar Pomodoro"), icon=ft.Icons.PLAY_ARROW, on_click=iniciar), btn_pausa,
+                ft.OutlinedButton(t("Detener"), icon=ft.Icons.STOP, on_click=parar)], wrap=True),
         ft.Divider(), resumen, ft.Text(t("¿Qué tan bien lo recordaste? (0 nada – 5 perfecto)")), calidad,
         ft.Divider(), ft.Text(t("Tarjetas de repaso (tú creas las preguntas)"), weight=ft.FontWeight.BOLD),
         apuntes, ft.Row([ft.ElevatedButton(t("Crear tarjetas de mis apuntes"), icon=ft.Icons.STYLE, on_click=tj_offline),

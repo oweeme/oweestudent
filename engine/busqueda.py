@@ -153,7 +153,7 @@ def materiales_pendientes(conn, indice: Indice, planes: list[int]) -> list:
     vistos, out = set(), []
     import os
     for m in conn.execute(f"SELECT * FROM materiales WHERE plan_id IN ({q}) AND hash IS NOT NULL ORDER BY id", planes):
-        if m["hash"] in vistos or not m["ruta"] or not os.path.exists(m["ruta"]) or indice.indexado(m["hash"]):
+        if m["tipo"] in ("imagen", "enlace") or m["hash"] in vistos or not m["ruta"] or not os.path.exists(m["ruta"]) or indice.indexado(m["hash"]):
             continue
         vistos.add(m["hash"])
         out.append(m)

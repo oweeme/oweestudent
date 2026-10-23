@@ -11,6 +11,7 @@ from engine import nivel as niveles
 from engine.entorno import restaurar_librerias
 from i18n import marcar, t
 from ui import tema
+from ui.components import pomodoro_barra
 from ui.state import AppState
 from ui.views import (ajustes, aprende_owee, asistente, estudio, estudios, hoy, entregas, escritor, exportar, importar, lecturas, login, material, plan,
                       planes, practica, preguntar, repaso, retos, sincronizar, sprint, stats)
@@ -50,6 +51,8 @@ def main(page: ft.Page):
 
     def construir_app(vista=None):
         cuerpo = ft.Container(expand=True, alignment=ft.alignment.top_left)
+        MAS = -1                 # «pantalla» del menú Más dentro del historial
+        historial, actual = [], {"vista": None}
         HOY, PLAN, MATERIAL, REPASO, ESTUDIAR, PLANES, IMPORTAR, METRICAS, SINCRONIZAR, AJUSTES, OWEE, ASISTENTE, LECTURAS, PREGUNTAR, PRACTICA, EXPORTAR, ENTREGAS, ESCRITOR, RETOS, SPRINT = range(20)
         PRINCIPALES = [HOY, PLAN, MATERIAL, REPASO]      # barra inferior / barra lateral (+ «Más»)
         SIN_PLAN_OK = (HOY, PLAN, PLANES, IMPORTAR, ESTUDIAR, REPASO, METRICAS, SINCRONIZAR, AJUSTES, OWEE, ASISTENTE, PREGUNTAR, PRACTICA, EXPORTAR, ENTREGAS, ESCRITOR, RETOS, SPRINT)
@@ -73,7 +76,7 @@ def main(page: ft.Page):
         SECUNDARIAS[:] = [x for x in SECUNDARIAS if investiga or x[0] != LECTURAS]
         vistas = {
             HOY: lambda: hoy.build(st, lambda: ir(ESTUDIAR), lambda: ir(HOY), lambda: ir(REPASO), lambda: ir(ENTREGAS), lambda: ir(SPRINT), lambda: ir(RETOS),
-                     lambda: ir(ASISTENTE), lambda: ir(IMPORTAR), lambda: ir(OWEE)),
+                     lambda: ir(ASISTENTE), lambda: ir(IMPORTAR), lambda: ir(OWEE), lambda: ir(MATERIAL)),
             PLAN: lambda: (plan.build(st, lambda: ir(ESTUDIAR), lambda: ir(PLAN)) if st.plan_abierto else
                            estudios.build(st, abrir_plan, estudiar_tema, lambda: ir(PLAN), lambda: ir(IMPORTAR))),
             MATERIAL: lambda: material.build(st, lambda: ir(MATERIAL), lambda pid: abrir_plan(pid)),
@@ -130,12 +133,26 @@ def main(page: ft.Page):
             k = PRINCIPALES.index(i) if i in PRINCIPALES else len(PRINCIPALES)
             rail.selected_index = bar.selected_index = k
 
-        def ir_mas():
+        def anotar(i, guardar):
+            """Recuerda de dónde vienes para poder volver atrás con la flecha."""
+            if guardar and actual["vista"] is not None and actual["vista"] != i:
+                historial.append(actual["vista"])
+            actual["vista"] = i
+            atras.visible = bool(historial)
+
+        def volver(_=None):
+            if historial:
+                prev = historial.pop()
+                ir_mas(guardar=False) if prev == MAS else ir(prev, guardar=False)
+
+        def ir_mas(guardar=True):
+            anotar(MAS, guardar)
             cuerpo.content = pantalla_mas()
             seleccionar(-1)
             page.update()
 
-        def ir(i):
+        def ir(i, guardar=True):
+            anotar(i, guardar)
             cuerpo.content = vistas[i]() if (st.plan_id or i in SIN_PLAN_OK) else ft.Text(
                 t("Aún no hay asignatura. Ve a «Más → Carpetas y asignaturas» o «Importar plan»."))
             seleccionar(i)
@@ -143,6 +160,8 @@ def main(page: ft.Page):
 
         def al_cambiar(e):
             k = e.control.selected_index
+            historial.clear()                  # tocar una pestaña principal empieza de nuevo (sin flecha atrás)
+            actual["vista"] = None
             if k < len(PRINCIPALES) and PRINCIPALES[k] == PLAN:
                 st.plan_abierto = False        # tocar «Plan» lleva siempre a «Mis estudios»
             ir(PRINCIPALES[k]) if k < len(PRINCIPALES) else ir_mas()
@@ -156,6 +175,10 @@ def main(page: ft.Page):
             destinations=[ft.NavigationBarDestination(icon=ETIQ[i][1], label=ETIQ[i][0]) for i in PRINCIPALES]
             + [ft.NavigationBarDestination(icon=ft.Icons.MENU, label=t("Más"))])
         divisor = ft.VerticalDivider(width=1)
+        atras = ft.IconButton(ft.Icons.ARROW_BACK, tooltip=t("Atrás"), visible=False, on_click=lambda _: volver())
+        st.al_tick.clear()
+        franja = ft.Row([atras, ft.Container(pomodoro_barra.crear(st, lambda: ir(ESTUDIAR)), expand=True)],
+                        vertical_alignment=ft.CrossAxisAlignment.CENTER)
 
         def layout(_=None):
             movil = (page.width or 1000) < 700
@@ -181,7 +204,7 @@ def main(page: ft.Page):
 
         page.on_route_change = abrir_enlace
         page.on_resized = layout
-        page.add(ft.SafeArea(ft.Row([rail, divisor, cuerpo], expand=True,
+        page.add(ft.SafeArea(ft.Row([rail, divisor, ft.Column([franja, cuerpo], expand=True, spacing=4)], expand=True,
                                     vertical_alignment=ft.CrossAxisAlignment.STRETCH), expand=True))
         layout()
         if vista is not None:      # p. ej. tras cambiar de idioma: volver a la misma pantalla
