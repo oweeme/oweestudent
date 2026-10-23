@@ -210,3 +210,20 @@ def test_flujo_completo_carpeta_estudio_y_sus_pestanas(monkeypatch):
                    for x in _todos_menu(cuerpo.content, (ft.Text, ft.ExpansionTile))), pestana
     next(b for b in _todos_menu(cuerpo.content, ft.IconButton) if b.tooltip == "Mis estudios").on_click(None)    # salir del estudio
     assert any("Abrir plan completo" == getattr(b, "text", None) for b in _todos_menu(cuerpo.content, (ft.ElevatedButton, ft.OutlinedButton)))
+
+
+def test_aprende_owee_del_menu_abre_el_espacio_del_curso_si_ya_esta_anadido(monkeypatch):
+    p = _arrancar(monkeypatch)
+    rail = next(c for c in _todos_menu(p.controles[0], ft.NavigationRail))
+    cuerpo = _cuerpo(p)
+    # el curso se añade desde la propia pantalla «Aprende Owee»
+    rail.selected_index = 3
+    rail.on_change(type("E", (), {"control": rail})())
+    opcion = next(x for x in _todos_menu(cuerpo.content, ft.ListTile) if "Owee" in str(x.title.value))
+    opcion.on_click(None)
+    next(b for b in _todos_menu(cuerpo.content, ft.ElevatedButton) if "Añadir el curso" in (b.text or "")).on_click(None)
+    rail.on_change(type("E", (), {"control": rail})())
+    opcion = next(x for x in _todos_menu(cuerpo.content, ft.ListTile) if "Owee" in str(x.title.value))
+    opcion.on_click(None)
+    textos = [b.text for b in _todos_menu(cuerpo.content, (ft.FilledButton, ft.OutlinedButton))]
+    assert textos[0] == "Curso" and "Estudiar" in textos
