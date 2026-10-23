@@ -5,7 +5,7 @@ import flet as ft
 from database import repo
 from engine import material as mat
 from i18n import marcar, t
-from ui.components.widgets import barra_progreso, confirmar, dialogo, tile_recurso
+from ui.components.widgets import confirmar, dialogo, tile_recurso
 from ui.views.material import EXT, ICONOS
 
 TIPOS_RECURSO = (marcar("url"), marcar("libro"), marcar("herramienta"), marcar("alternativa"))
@@ -14,21 +14,11 @@ TIPOS_RECURSO = (marcar("url"), marcar("libro"), marcar("herramienta"), marcar("
 def build(st, ir_a_estudio, recargar, ir_material=lambda: None):
     c = st.conn
     if not st.plan_id:
-        st.plan_abierto = False
         return ft.Text(t("Aún no hay plan. Ve a «Planes» para crear uno o a «Importar»."))
-    plan = c.execute("SELECT * FROM planes WHERE id=?", (st.plan_id,)).fetchone()
-    carpeta = c.execute("SELECT nombre FROM carpetas WHERE id=?", (plan["carpeta_id"],)).fetchone() if plan["carpeta_id"] else None
-
-    def volver(_=None):
-        st.plan_abierto = False
-        recargar()
-    prog = ft.Column()
-    prog.controls = [barra_progreso(repo.progreso(c, st.plan_id), t("Progreso general"))]
 
     def alternar(e, tid):
         repo.marcar_tema(c, tid, "completado" if e.control.value else "pendiente")
-        prog.controls = [barra_progreso(repo.progreso(c, st.plan_id), t("Progreso general"))]
-        st.page.update()
+        recargar()
 
     def estudiar(tid, titulo):
         st.tema_id, st.tema_titulo = tid, titulo
@@ -162,9 +152,6 @@ def build(st, ir_a_estudio, recargar, ir_material=lambda: None):
         rango = t(" (meses {a}-{b})", a=u["mes_ini"], b=u["mes_fin"]) if u["mes_ini"] else ""
         bloques.append(ft.ExpansionTile(title=ft.Text(u["titulo"] + rango), controls=filas))
 
-    cabecera = ft.Row([ft.IconButton(ft.Icons.ARROW_BACK, tooltip=t("Mis estudios"), on_click=volver),
-                       ft.Column([ft.Text((f"📁 {carpeta['nombre']}" if carpeta else t("Mis estudios")), size=12),
-                                  ft.Text(plan["titulo"], theme_style=ft.TextThemeStyle.HEADLINE_SMALL)], spacing=0, expand=True)])
-    return ft.Column([cabecera, prog, *bloques,
+    return ft.Column([*bloques,
                       ft.ElevatedButton(t("＋ Nueva unidad / módulo"), on_click=lambda _: add_unidad())],
                      spacing=8, scroll=ft.ScrollMode.AUTO, expand=True)

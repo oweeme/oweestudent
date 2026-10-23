@@ -71,11 +71,11 @@ def test_cada_opcion_del_menu_se_abre(monkeypatch, nivel, codigo):
     try:
         rail = next(c for c in _todos(p.controles[0], ft.NavigationRail))
         cuerpo = _cuerpo(p)
-        rail.selected_index = 4                                   # «Más»
+        rail.selected_index = 3                                   # «Más» (Hoy, Estudios, Repaso, Más)
         rail.on_change(type("E", (), {"control": rail})())
         menu = cuerpo.content
         opciones = _todos(menu, ft.ListTile)
-        assert len(opciones) == (16 if nivel == "universitario" else 15)      # sin «Lecturas (investigación)» en el colegio
+        assert len(opciones) == (15 if nivel == "universitario" else 14)      # sin «Lecturas (investigación)» en el colegio
         for i in range(len(opciones)):
             rail.on_change(type("E", (), {"control": rail})())       # volver al menú
             _todos(cuerpo.content, ft.ListTile)[i].on_click(None)
@@ -85,7 +85,7 @@ def test_cada_opcion_del_menu_se_abre(monkeypatch, nivel, codigo):
 
 
 @pytest.mark.parametrize("destino", range(4))
-def test_las_cuatro_pestanas_principales_se_abren(monkeypatch, destino):
+def test_las_pestanas_principales_se_abren(monkeypatch, destino):
     p = _arrancar(monkeypatch)
     rail = next(c for c in _todos(p.controles[0], ft.NavigationRail))
     rail.selected_index = destino

@@ -6,14 +6,16 @@ from i18n import t
 from ui.components.owee_texto import texto_tarjeta
 
 
-def build(st):
+def build(st, solo_plan=False):
+    """solo_plan=True: únicamente las tarjetas del estudio abierto (dentro de su espacio)."""
+    pid = st.plan_id if solo_plan else None
     col = ft.Column(spacing=10, scroll=ft.ScrollMode.AUTO, expand=True)
 
     def cargar():
         col.controls.clear()
         col.controls.append(ft.Text(t("Repaso"), theme_style=ft.TextThemeStyle.HEADLINE_SMALL))
-        tj = repo.tarjetas_pendientes(st.conn, st.perfil_id)
-        notas = repo.repasos_pendientes(st.conn, st.perfil_id)
+        tj = repo.tarjetas_pendientes(st.conn, st.perfil_id, pid)
+        notas = repo.repasos_pendientes(st.conn, st.perfil_id, pid)
         if not tj and not notas:
             col.controls.append(ft.Text(t("No tienes repasos pendientes hoy 🎉 Crea tarjetas desde tus apuntes en «Estudiar».")))
         if tj:

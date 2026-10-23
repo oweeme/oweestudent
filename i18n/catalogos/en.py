@@ -25,8 +25,7 @@ TEXTOS = {
     "Estudio": "Study", "Descanso": "Break",
 
     # --- navegación (main) ---
-    "Hoy": "Today", "Plan": "Plan", "Material": "Material", "Repaso": "Review", "Más": "More",
-    "Estudiar (Pomodoro y tarjetas)": "Study (Pomodoro and flashcards)",
+    "Hoy": "Today", "Material": "Material", "Repaso": "Review", "Más": "More",
     "Importar plan": "Import plan", "Métricas": "Stats",
     "Sincronizar con otro equipo": "Sync with another device", "Ajustes, IA y apariencia": "Settings, AI and appearance",
     "Aún no hay asignatura. Ve a «Más → Carpetas y asignaturas» o «Importar plan».":
@@ -989,4 +988,7 @@ TEXTOS = {
     'Para un PDF, Word, Excel o imagen usa «＋ Archivo» en la unidad.': 'For a PDF, Word, Excel or image use “＋ File” in the unit.',
     'Ese archivo ya está adjuntado en esta asignatura: no se duplicó.': 'That file is already attached in this subject: it was not duplicated.',
     '＋ Archivo': '＋ File',
+    'Curso': 'Course',
+    'Temario': 'Syllabus',
+    'Estudios': 'Studies',
 }
