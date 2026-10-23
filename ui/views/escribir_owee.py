@@ -1,20 +1,21 @@
 import flet as ft
 
 from database import repo
+from engine import escritura as escritor
 from engine import escritura_owee as motor
 from i18n import marcar, owee, t
 from owee_curso import curso
 from ui.components.owee_texto import glifos
 from ui.components.teclado_owee import teclado
 
-MODOS_VISTA = {"taller": marcar("Taller libre"), "practica": marcar("Práctica")}
+MODOS_VISTA = {"taller": marcar("Taller libre"), "practica": marcar("Práctica"), "articulo": marcar("Artículo")}
 
 
 def build(st, recargar=lambda: None):
     """Escribir en Owee Script dentro de la app: un taller libre (teclado de sílabas) y rondas de práctica con las palabras
     del curso. Las palabras que fallas se añaden a «Repaso»."""
     c = st.conn
-    est = {"vista": "taller", "ronda": None, "i": 0, "ok": 0, "respondida": False}
+    est = {"vista": "taller", "ronda": None, "i": 0, "ok": 0, "respondida": False, "art": None, "sec": None}
     cuerpo = ft.Column(spacing=10, scroll=ft.ScrollMode.AUTO, expand=True, horizontal_alignment=ft.CrossAxisAlignment.STRETCH)
     escrito: list[str] = []                      # lo compuesto con el teclado, en romano
 
@@ -162,8 +163,104 @@ def build(st, recargar=lambda: None):
                            *extra, ft.ElevatedButton(t("Nueva ronda"), icon=ft.Icons.REFRESH, on_click=nueva_ronda)]
         st.page.update()
 
+    # ---------- artículo: un texto largo en Owee, por secciones, para valorar lo aprendido ----------
+    def mostrar_articulos():
+        est["art"] = None
+        plan_id = curso.plan_del_curso(c, st.perfil_id)
+        lista = escritor.escritos(c, plan_id) if plan_id else []
+        titulo = ft.TextField(label=t("Título del artículo"), width=320, dense=True)
+
+        def crear(_):
+            if plan_id and (titulo.value or "").strip():
+                est["art"], est["sec"] = escritor.crear_escrito(c, plan_id, titulo.value, "ensayo", meta_palabras=300), None
+                mostrar_editor()
+        filas = [ft.ListTile(dense=True, leading=ft.Icon(ft.Icons.ARTICLE), title=ft.Text(e["titulo"]),
+                             subtitle=ft.Text(t("{n} palabras", n=escritor.progreso(c, e["id"])["palabras"]), size=11),
+                             on_click=lambda _, i=e["id"]: abrir(i)) for e in lista]
+        cuerpo.controls = [selector(),
+                           ft.Text(t("Escribe un texto más largo en Owee, por secciones, y valora lo que has aprendido: la app revisa tus palabras y tu vocabulario."), size=13),
+                           *(filas or [ft.Text(t("Aún no tienes artículos. Crea el primero."))]),
+                           ft.Row([titulo, ft.ElevatedButton(t("＋ Nuevo artículo"), icon=ft.Icons.ADD, on_click=crear)], wrap=True)]
+        st.page.update()
+
+    def abrir(art_id):
+        est["art"], est["sec"] = art_id, None
+        mostrar_editor()
+
+    def mostrar_editor():
+        art = escritor.escrito(c, est["art"])
+        secs = escritor.secciones(c, est["art"])
+        if est["sec"] not in [x["id"] for x in secs]:
+            est["sec"] = secs[0]["id"]
+        sec = escritor.seccion(c, est["sec"])
+        total = escritor.progreso(c, est["art"])
+        vista_glifos = glifos("", size=28, selectable=True)
+        contador = ft.Text("", size=12, color=ft.Colors.OUTLINE)
+        valoracion = ft.Column(spacing=4)
+        campo_texto = ft.TextField(label=t("Escribe aquí en romano (abajo se dibuja en escritura Owee)"), value=sec["texto"] or "",
+                                   multiline=True, min_lines=6, max_lines=16)
+
+        def refrescar_texto():
+            vista_glifos.value = owee.a_escritura(campo_texto.value or "")
+            contador.value = t("{n} palabras", n=escritor.contar_palabras(campo_texto.value or "")) + " · " + t("Guardado")
+
+        def al_cambiar(_):
+            escritor.editar_seccion(c, sec["id"], texto=campo_texto.value or "")
+            refrescar_texto()
+            st.page.update()
+        campo_texto.on_change = al_cambiar
+
+        def insertar(texto):
+            campo_texto.value = (campo_texto.value or "") + texto
+            al_cambiar(None)
+
+        def valorar(_):
+            todo = "\n".join((escritor.seccion(c, x["id"])["texto"] or "") for x in secs)
+            v = motor.valorar(todo)
+            lineas = []
+            if not v["palabras"]:
+                lineas.append(ft.Text(t("Escribe algo primero para valorarlo.")))
+            else:
+                lineas += [ft.Text(t("Tu texto: {n} palabras ({u} distintas) en {o} oraciones.", n=v["palabras"], u=v["distintas"], o=v["oraciones"]), weight=ft.FontWeight.BOLD),
+                           ft.Text(t("{p:.0%} de tus palabras están en el léxico de Owee.", p=v["cobertura"])),
+                           ft.Text(t("Variedad de palabras: {v:.0%} (cuanto más alta, menos repites).", v=v["variedad"]))]
+                if v["nivel"] is not None:
+                    lineas.append(ft.Text(t("Usas vocabulario hasta el nivel {n} del curso.", n=v["nivel"])))
+                if v["nombres"]:
+                    lineas.append(ft.Text(t("Nombres propios: {n}", n=v["nombres"])))
+                if v["invalidas"]:
+                    lineas.append(ft.Text(t("No se pueden escribir en Owee (revisa las sílabas; no existe la «i»): {lista}", lista=", ".join(v["invalidas"])), color=ft.Colors.RED_300))
+                if v["desconocidas"]:
+                    lineas.append(ft.Text(t("No están en el léxico (¿errata o palabra nueva?): {lista}", lista=", ".join(v["desconocidas"])), color=ft.Colors.AMBER_400))
+                if not v["invalidas"] and not v["desconocidas"]:
+                    lineas.append(ft.Text(t("✅ Sin errores de escritura. Prueba oraciones más largas o más variedad de palabras."), color=ft.Colors.GREEN_400))
+            valoracion.controls = lineas
+            st.page.update()
+
+        def copiar(_):
+            todo = "\n\n".join(owee.a_escritura(escritor.seccion(c, x["id"])["texto"] or "") for x in secs)
+            st.page.set_clipboard(todo)
+            st.toast(t("Copiado en escritura Owee"))
+
+        chips = ft.Row([(ft.FilledButton if x["id"] == est["sec"] else ft.OutlinedButton)(
+            f"{x['titulo']} ({escritor.contar_palabras(x['texto'] or '')})", on_click=lambda _, i=x["id"]: (est.update(sec=i), mostrar_editor()))
+            for x in secs], wrap=True, spacing=6)
+        refrescar_texto()
+        cuerpo.controls = [
+            selector(),
+            ft.Row([ft.IconButton(ft.Icons.ARROW_BACK, tooltip=t("Mis artículos"), on_click=lambda _: mostrar_articulos()),
+                    ft.Column([ft.Text(art["titulo"], theme_style=ft.TextThemeStyle.TITLE_LARGE),
+                               ft.Text(t("{n} de {m} palabras", n=total["palabras"], m=art["meta_palabras"]), size=12, color=ft.Colors.OUTLINE)], spacing=0, expand=True)]),
+            chips, ft.Text(sec["notas"] or "", size=12, italic=True), campo_texto, contador,
+            ft.Container(ft.Row([vista_glifos], scroll=ft.ScrollMode.AUTO), padding=12, border_radius=8, border=ft.border.all(1, ft.Colors.OUTLINE_VARIANT)),
+            ft.ExpansionTile(title=ft.Text(t("Teclado de sílabas")), controls=[ft.Container(teclado(insertar, incluir_digitos=True), padding=8)]),
+            ft.Row([ft.ElevatedButton(t("Valorar mi texto"), icon=ft.Icons.FACT_CHECK, on_click=valorar),
+                    ft.OutlinedButton(t("Copiar en escritura Owee"), icon=ft.Icons.COPY, on_click=copiar)], wrap=True),
+            valoracion]
+        st.page.update()
+
     def mostrar():
-        mostrar_taller() if est["vista"] == "taller" else mostrar_practica()
+        {"taller": mostrar_taller, "practica": mostrar_practica, "articulo": mostrar_articulos}[est["vista"]]()
 
     mostrar()
     return cuerpo

@@ -152,3 +152,70 @@ def test_leer_el_glifo_se_responde_en_romano_sin_teclado(st, monkeypatch):
     campo.on_change(None)
     boton(cuerpo, "Comprobar").on_click(None)
     assert "✅ Correcto" in _textos(cuerpo)
+
+
+# ---------- artículo ----------
+def _vista_articulo(st):
+    cuerpo = escribir_owee.build(st)
+    seg = next(x for x in _todos(cuerpo, ft.SegmentedButton))
+    seg.on_change(type("E", (), {"control": type("C", (), {"selected": {"articulo"}})()})())
+    return cuerpo
+
+
+def test_valorar_detecta_palabras_imposibles_desconocidas_y_nombres():
+    v = motor.valorar("Ana sade-kelo suna. Mune pore ximi! kuma kuma bado-kopa-meka? Sade suna nara.")
+    assert v["invalidas"] == ["ximi"] and v["nombres"] == 1 and v["oraciones"] == 4
+    assert v["cobertura"] == 1.0 and v["nivel"] is not None and 0 < v["variedad"] < 1
+    v = motor.valorar("suna pupupupu")
+    assert v["desconocidas"] == ["pupupupu"] and v["cobertura"] == 0.5
+    assert motor.valorar("")["palabras"] == 0
+
+
+def test_crear_un_articulo_escribir_y_valorarlo(st):
+    cuerpo = _vista_articulo(st)
+    assert "Aún no tienes artículos" in _textos(cuerpo)
+    next(x for x in _todos(cuerpo, ft.TextField) if x.label == "Título del artículo").value = "Mi primer texto"
+    next(b for b in _todos(cuerpo, ft.ElevatedButton) if "Nuevo artículo" in (b.text or "")).on_click(None)
+    assert "Mi primer texto" in _textos(cuerpo) and "Introducción y tesis" in " ".join(b.text for b in _todos(cuerpo, (ft.FilledButton, ft.OutlinedButton)))
+    campo = next(x for x in _todos(cuerpo, ft.TextField) if x.multiline)
+    campo.value = "sade suna. mune pore ximi"
+    campo.on_change(None)
+    art = escritor_articulos(st)[0]
+    assert escritor_texto(st, art["id"]) == "sade suna. mune pore ximi"           # se guarda al escribir
+    assert any(x.font_family and owee.a_escritura("sade") in (x.value or "") for x in _todos(cuerpo, ft.Text))   # y se ve en glifos
+    next(b for b in _todos(cuerpo, ft.ElevatedButton) if b.text == "Valorar mi texto").on_click(None)
+    txt = _textos(cuerpo)
+    assert "ximi" in txt and "No se pueden escribir en Owee" in txt and "5 palabras" in txt.replace("Tu texto: 5 palabras", "5 palabras")
+
+
+def test_el_teclado_inserta_silabas_en_el_texto_del_articulo(st):
+    cuerpo = _vista_articulo(st)
+    next(x for x in _todos(cuerpo, ft.TextField) if x.label == "Título del artículo").value = "T"
+    next(b for b in _todos(cuerpo, ft.ElevatedButton) if "Nuevo artículo" in (b.text or "")).on_click(None)
+    tecla(cuerpo, "su").on_click(None)
+    tecla(cuerpo, "na").on_click(None)
+    campo = next(x for x in _todos(cuerpo, ft.TextField) if x.multiline)
+    assert campo.value == "suna"
+
+
+def test_un_texto_limpio_recibe_el_visto_bueno_y_se_puede_copiar(st):
+    cuerpo = _vista_articulo(st)
+    next(x for x in _todos(cuerpo, ft.TextField) if x.label == "Título del artículo").value = "T"
+    next(b for b in _todos(cuerpo, ft.ElevatedButton) if "Nuevo artículo" in (b.text or "")).on_click(None)
+    campo = next(x for x in _todos(cuerpo, ft.TextField) if x.multiline)
+    campo.value = "sade suna. mune pore."
+    campo.on_change(None)
+    next(b for b in _todos(cuerpo, ft.ElevatedButton) if b.text == "Valorar mi texto").on_click(None)
+    assert "Sin errores de escritura" in _textos(cuerpo)
+    boton(cuerpo, "Copiar en escritura Owee").on_click(None)
+    assert owee.a_escritura("sade suna. mune pore.") in st.page.copiado
+
+
+def escritor_articulos(st):
+    from engine import escritura
+    return escritura.escritos(st.conn, curso.plan_del_curso(st.conn, st.perfil_id))
+
+
+def escritor_texto(st, art_id):
+    from engine import escritura
+    return escritura.secciones(st.conn, art_id)[0]["texto"]

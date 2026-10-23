@@ -43,3 +43,63 @@ def teclas() -> dict:
     return {"vocales": list(owee.VOCALES),
             "silabas": [[c + v for v in owee.VOCALES] for c in owee.CONSONANTES],
             "digitos": [str(d) for d in range(10)]}
+
+
+# ---------- valorar un texto escrito en Owee (sin IA: reglas del idioma + léxico aprobado) ----------
+import functools
+import re
+from pathlib import Path
+
+_PALABRA = re.compile(r"[A-Za-z]+(?:-[A-Za-z]+)*")
+_VOCABULARIO = Path(__file__).resolve().parents[1] / "i18n" / "datos" / "owee_vocabulario.txt"
+
+
+@functools.lru_cache(maxsize=1)
+def conocidas() -> frozenset[str]:
+    """Palabras aprobadas: léxico del curso + vocabulario del idioma (y las partes de los compuestos)."""
+    base = {w.lower() for w in curso.LEXICO}
+    try:
+        base |= {l.strip().lower() for l in _VOCABULARIO.read_text(encoding="utf-8").splitlines() if l.strip()}
+    except OSError:
+        pass
+    return frozenset(base | {p for w in base for p in w.split("-")})
+
+
+@functools.lru_cache(maxsize=1)
+def _nivel_de() -> dict[str, int]:
+    """Palabra → nivel del curso (0-3) donde aparece por primera vez."""
+    out: dict[str, int] = {}
+    for l in curso.lecciones():
+        for w in curso.palabras_de(l["md"]):
+            for p in w.lower().split("-"):
+                out.setdefault(p, l["nivel"])
+    return out
+
+
+def valorar(texto: str) -> dict:
+    """Qué tal está escrito: palabras imposibles en Owee, palabras fuera del léxico, nombres, variedad y nivel del vocabulario."""
+    sabidas, niveles = conocidas(), _nivel_de()
+    invalidas, desconocidas, validas, nombres, nivel = [], [], [], 0, None
+    for tok in _PALABRA.findall(texto or ""):
+        partes = tok.lower().split("-")
+        if not all(owee.valida(p) for p in partes):
+            if tok[0].isupper():
+                nombres += 1                       # un nombre propio puede traer letras que Owee no usa
+            elif tok not in invalidas:
+                invalidas.append(tok)
+            continue
+        if tok[0].isupper() and tok.lower() not in sabidas:
+            nombres += 1
+            continue
+        validas.append(tok.lower())
+        if all(p in sabidas for p in partes):
+            nivel = max([nivel or 0] + [niveles[p] for p in partes if p in niveles])
+        elif tok.lower() not in desconocidas:
+            desconocidas.append(tok.lower())
+    oraciones = len([x for x in re.split(r"[.!?\n]+", texto or "") if _PALABRA.search(x)])
+    total = len(validas)
+    conocidas_n = sum(1 for w in validas if all(p in sabidas for p in w.split("-")))
+    return {"palabras": total, "distintas": len(set(validas)), "oraciones": oraciones, "nombres": nombres,
+            "invalidas": invalidas, "desconocidas": desconocidas,
+            "cobertura": conocidas_n / total if total else 0.0, "variedad": len(set(validas)) / total if total else 0.0,
+            "nivel": nivel, "palabras_por_oracion": total / oraciones if oraciones else 0.0}
