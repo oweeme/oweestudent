@@ -1089,4 +1089,7 @@ TEXTOS = {
     '＋ Añadir enlace': '＋ 添加链接',
     'Abrir enlace': '打开链接',
     'Atrás': '返回',
+    'Para un PDF, Word, Excel o imagen usa «＋ Archivo» en la unidad.': 'PDF、Word、Excel 或图片请使用单元中的“＋ 文件”。',
+    'Ese archivo ya está adjuntado en esta asignatura: no se duplicó.': '该文件已附加在此科目中：未重复添加。',
+    '＋ Archivo': '＋ 文件',
 }

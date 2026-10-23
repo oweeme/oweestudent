@@ -167,3 +167,24 @@ def test_el_boton_atras_vuelve_a_donde_estabas(monkeypatch):
     atras.on_click(None)                                          # volver
     assert [x.title.value for x in _todos_menu(cuerpo.content, ft.ListTile)][:1] == [x.title.value for x in _todos_menu(menu, ft.ListTile)][:1]
     assert not atras.visible
+
+
+def test_un_archivo_se_adjunta_a_una_unidad_y_aparece_en_sus_recursos(st, tmp_path, monkeypatch):
+    from ui.views import plan as vista_plan
+    st.page.overlay = []
+    monkeypatch.setattr(ft.FilePicker, "pick_files", lambda self, **k: None)      # la ventana del sistema no existe en la prueba
+    f = tmp_path / "temario.txt"
+    f.write_text("Contenido del temario " * 50, encoding="utf-8")
+    recargas, saltos = [], []
+    cuerpo = vista_plan.build(st, lambda: None, lambda: recargas.append(1), lambda: saltos.append(1))
+    boton = next(b for b in _todos(cuerpo, ft.TextButton) if b.text == "＋ Archivo")
+    boton.on_click(None)
+    picker = st.page.overlay[-1]
+    picker.on_result(type("E", (), {"files": [type("F", (), {"path": str(f)})()]})())
+    unidad = repo.unidades(st.conn, st.plan_id)[0]
+    m = st.conn.execute("SELECT * FROM materiales WHERE unidad_id=?", (unidad["id"],)).fetchone()
+    assert m["titulo"] == "temario" and recargas
+    cuerpo = vista_plan.build(st, lambda: None, lambda: None, lambda: saltos.append(1))      # el plan se redibuja con el archivo
+    fila = next(x for x in _todos(cuerpo, ft.ListTile) if getattr(x.title, "value", "") == "temario")
+    fila.on_click(None)
+    assert st.abrir_material == (m["id"], 1) and saltos == [1]

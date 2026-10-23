@@ -1089,4 +1089,7 @@ TEXTOS = {
     '＋ Añadir enlace': '＋ リンクを追加',
     'Abrir enlace': 'リンクを開く',
     'Atrás': '戻る',
+    'Para un PDF, Word, Excel o imagen usa «＋ Archivo» en la unidad.': 'PDF、Word、Excel、画像は、ユニットの「＋ ファイル」を使ってください。',
+    'Ese archivo ya está adjuntado en esta asignatura: no se duplicó.': 'このファイルはこの科目にすでに添付されています。重複は作りませんでした。',
+    '＋ Archivo': '＋ ファイル',
 }

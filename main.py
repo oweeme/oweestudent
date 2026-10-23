@@ -77,7 +77,7 @@ def main(page: ft.Page):
         vistas = {
             HOY: lambda: hoy.build(st, lambda: ir(ESTUDIAR), lambda: ir(HOY), lambda: ir(REPASO), lambda: ir(ENTREGAS), lambda: ir(SPRINT), lambda: ir(RETOS),
                      lambda: ir(ASISTENTE), lambda: ir(IMPORTAR), lambda: ir(OWEE), lambda: ir(MATERIAL)),
-            PLAN: lambda: (plan.build(st, lambda: ir(ESTUDIAR), lambda: ir(PLAN)) if st.plan_abierto else
+            PLAN: lambda: (plan.build(st, lambda: ir(ESTUDIAR), lambda: ir(PLAN), lambda: ir(MATERIAL)) if st.plan_abierto else
                            estudios.build(st, abrir_plan, estudiar_tema, lambda: ir(PLAN), lambda: ir(IMPORTAR))),
             MATERIAL: lambda: material.build(st, lambda: ir(MATERIAL), lambda pid: abrir_plan(pid)),
             REPASO: lambda: repaso.build(st),

@@ -986,4 +986,7 @@ TEXTOS = {
     '＋ Añadir enlace': '＋ Add link',
     'Abrir enlace': 'Open link',
     'Atrás': 'Back',
+    'Para un PDF, Word, Excel o imagen usa «＋ Archivo» en la unidad.': 'For a PDF, Word, Excel or image use “＋ File” in the unit.',
+    'Ese archivo ya está adjuntado en esta asignatura: no se duplicó.': 'That file is already attached in this subject: it was not duplicated.',
+    '＋ Archivo': '＋ File',
 }

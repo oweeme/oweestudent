@@ -1089,4 +1089,7 @@ TEXTOS = {
     '＋ Añadir enlace': '＋ Link hinzufügen',
     'Abrir enlace': 'Link öffnen',
     'Atrás': 'Zurück',
+    'Para un PDF, Word, Excel o imagen usa «＋ Archivo» en la unidad.': 'Für PDF, Word, Excel oder Bild nutze „＋ Datei“ in der Einheit.',
+    'Ese archivo ya está adjuntado en esta asignatura: no se duplicó.': 'Diese Datei ist in diesem Fach schon angehängt: Sie wurde nicht doppelt angelegt.',
+    '＋ Archivo': '＋ Datei',
 }
