@@ -1089,4 +1089,7 @@ TEXTOS = {
     '＋ Añadir enlace': '＋ Добавить ссылку',
     'Abrir enlace': 'Открыть ссылку',
     'Atrás': 'Назад',
+    'Para un PDF, Word, Excel o imagen usa «＋ Archivo» en la unidad.': 'Для PDF, Word, Excel или изображения используйте «＋ Файл» в разделе.',
+    'Ese archivo ya está adjuntado en esta asignatura: no se duplicó.': 'Этот файл уже прикреплён в этом предмете: дубликат не создан.',
+    '＋ Archivo': '＋ Файл',
 }
