@@ -99,6 +99,37 @@ def crear_plan_del_curso(conn, perfil_id: int, inicio=None) -> int:
     return plan
 
 
+def actualizar_plan_del_curso(conn, plan_id: int) -> int:
+    """Pone al día un plan del curso ya creado cuando el curso crece (lecciones nuevas o renombradas): añade lo que falta,
+    renombra lo que cambió de título y reordena. No toca tu progreso. Devuelve cuántas lecciones nuevas se añadieron."""
+    nuevas = 0
+    for n in NIVELES:
+        titulo_unidad = f"Nivel {n['n']} — {n['titulo']}"
+        fila = conn.execute("SELECT id, titulo FROM unidades WHERE plan_id=? AND titulo LIKE ?", (plan_id, f"Nivel {n['n']} %")).fetchone()
+        if fila is None:
+            unidad = repo.agregar_unidad(conn, plan_id, titulo_unidad, tipo="idioma")
+        else:
+            unidad = fila["id"]
+            if fila["titulo"] != titulo_unidad:
+                repo.renombrar_unidad(conn, unidad, titulo_unidad)
+        existentes = conn.execute("SELECT id, titulo FROM temas WHERE unidad_id=?", (unidad,)).fetchall()
+        por_titulo = {e["titulo"]: e["id"] for e in existentes}
+        por_numero = {e["titulo"].split(" ", 1)[0]: e for e in existentes}
+        for orden, l in enumerate(n["lecciones"]):
+            titulo = titulo_tema(l)
+            if titulo in por_titulo:
+                tid = por_titulo[titulo]
+            elif l["id"] in por_numero:                      # misma lección con otro título: se renombra y conserva su progreso
+                tid = por_numero[l["id"]]["id"]
+                conn.execute("UPDATE temas SET titulo=? WHERE id=?", (titulo, tid))
+            else:
+                tid = repo.agregar_tema(conn, unidad, titulo, horas=0.5 if n["n"] == 0 else 1.0)
+                nuevas += 1
+            conn.execute("UPDATE temas SET orden=? WHERE id=?", (orden, tid))
+        conn.commit()
+    return nuevas
+
+
 def siguiente_leccion(conn, plan_id: int) -> dict | None:
     """La primera lección que todavía no marcaste como hecha (None si terminaste el curso)."""
     return next((l for l in lecciones() if estado_leccion(conn, plan_id, l["id"]) != "completado"), None)

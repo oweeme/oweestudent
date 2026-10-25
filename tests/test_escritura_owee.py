@@ -219,3 +219,38 @@ def escritor_articulos(st):
 def escritor_texto(st, art_id):
     from engine import escritura
     return escritura.secciones(st.conn, art_id)[0]["texto"]
+
+
+# ---------- diccionario y palabra del día ----------
+def test_buscar_por_owee_o_por_significado_con_las_exactas_primero():
+    r, total = motor.buscar("agua")
+    assert r[0] == ("suna", "agua", "concepto") and total >= 2
+    assert motor.buscar("suna")[0][0][0] == "suna"
+    assert motor.buscar("AGUA")[0][0][0] == "suna"                   # sin importar mayúsculas
+    assert motor.buscar("zzzz")[0] == []
+    antes = motor.buscar("", limite=5)
+    assert len(antes[0]) == 5 and antes[1] > 1000                  # sin consulta: todo el diccionario, paginado
+    sustantivos = motor.buscar("", clase=motor.clases()[0])
+    assert all(c == motor.clases()[0] for _, _, c in sustantivos[0])
+
+
+def test_la_palabra_del_dia_cambia_cada_dia_y_es_la_misma_para_todos():
+    from datetime import date
+    a = motor.palabra_del_dia(date(2026, 10, 25))
+    assert a == motor.palabra_del_dia(date(2026, 10, 25)) and a != motor.palabra_del_dia(date(2026, 10, 26))
+    assert a[0] in {w for w, _ in motor.palabras()}
+
+
+def test_la_pantalla_del_diccionario_busca_y_lleva_la_palabra_a_repaso(st):
+    from ui.views import diccionario_owee
+    cuerpo = diccionario_owee.build(st)
+    assert "Diccionario Owee" in _textos(cuerpo) and "Palabra del día" in _textos(cuerpo)
+    campo = next(x for x in _todos(cuerpo, ft.TextField))
+    campo.value = "agua"
+    campo.on_change(None)
+    fila = next(x for x in _todos(cuerpo, ft.ListTile) if "suna" in str(x.title.value))
+    fila.trailing.on_click(None)
+    pendientes = repo.tarjetas_pendientes(st.conn, st.perfil_id, st.plan_id)
+    assert {k["respuesta"] for k in pendientes} >= {"agua", curso.MARCA_OWEE + "suna"}
+    fila.trailing.on_click(None)                                    # repetirlo no duplica
+    assert len(repo.tarjetas_pendientes(st.conn, st.perfil_id, st.plan_id)) == len(pendientes)

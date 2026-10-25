@@ -103,3 +103,49 @@ def valorar(texto: str) -> dict:
             "invalidas": invalidas, "desconocidas": desconocidas,
             "cobertura": conocidas_n / total if total else 0.0, "variedad": len(set(validas)) / total if total else 0.0,
             "nivel": nivel, "palabras_por_oracion": total / oraciones if oraciones else 0.0}
+
+
+# ---------- diccionario y palabra del día ----------
+import unicodedata
+from datetime import date
+
+
+def _sin_tildes(s: str) -> str:
+    return "".join(c for c in unicodedata.normalize("NFD", s.lower()) if unicodedata.category(c) != "Mn")
+
+
+def clases() -> list[str]:
+    return sorted({v[1] for v in curso.LEXICO.values() if v[1]})
+
+
+def buscar(consulta: str = "", clase: str | None = None, limite: int = 60) -> tuple[list[tuple[str, str, str]], int]:
+    """(palabra, significado, clase) que coinciden con la consulta en Owee o en español, y cuántas hay en total.
+    Primero la palabra exacta, luego las que empiezan por la consulta, luego las que la contienen."""
+    q = _sin_tildes((consulta or "").strip())
+    filas = []
+    for w, (sig, cl) in curso.LEXICO.items():
+        if clase and cl != clase:
+            continue
+        if not q:
+            rango = 3
+        else:
+            ws, ss = _sin_tildes(w), _sin_tildes(sig)
+            if ws == q or q in [x.strip() for x in ss.replace("/", ",").split(",")]:
+                rango = 0
+            elif ws.startswith(q) or ss.startswith(q):
+                rango = 1
+            elif q in ws or q in ss:
+                rango = 2
+            else:
+                continue
+        filas.append((rango, len(w), w, sig, cl))
+    filas.sort()
+    return [(w, s, c) for _, _, w, s, c in filas[:limite]], len(filas)
+
+
+def palabra_del_dia(hoy: date | None = None, hasta: str | None = None) -> tuple[str, str] | None:
+    """Una palabra distinta cada día (la misma para todos ese día), de las que ya puedes haber visto en el curso."""
+    pool = palabras(hasta) or palabras()
+    if not pool:
+        return None
+    return pool[(hoy or date.today()).toordinal() % len(pool)]

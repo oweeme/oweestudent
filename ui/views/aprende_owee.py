@@ -18,6 +18,9 @@ def build(st, recargar):
     def plan():
         return curso.plan_del_curso(c, st.perfil_id)
 
+    if plan():
+        curso.actualizar_plan_del_curso(c, plan())      # el curso puede haber crecido desde que lo añadiste
+
     def asegurar_plan():
         existente = plan()
         if existente:
@@ -136,7 +139,7 @@ def build(st, recargar):
         cuerpo.controls = [
             ft.Text(t("Aprende Owee"), theme_style=ft.TextThemeStyle.HEADLINE_SMALL),
             ft.Text(t("Owee es un idioma construido: 4 vocales, 14 consonantes, sin géneros ni conjugaciones y con su propia "
-                      "escritura (un bloque por sílaba). Aquí tienes su curso por niveles, con tarjetas de glifos y vocabulario. "
+                      "escritura en línea (cada sílaba es una consonante con su vocal a la derecha). Aquí tienes su curso por niveles, con tarjetas de glifos y vocabulario. "
                       "Las lecciones están escritas en español."), size=13),
             *estado, selector_modo(), *filas,
             ft.Text(t("Curso y contenido de Owee: Hector Martinez, CC BY-SA 4.0 · oweeme.github.io/owee"), size=11,

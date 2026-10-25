@@ -139,9 +139,12 @@ def build(st, ir_a_estudio, recargar, ir_repaso=lambda: None, ir_entregas=lambda
     if curso_plan and curso_plan["id"] != st.plan_id:       # el curso ya está en tu plan: un recordatorio discreto, nunca por encima de lo tuyo
         sig = curso_owee.siguiente_leccion(c, curso_plan["id"])
         if sig:
+            from engine import escritura_owee as owee_motor
+            dia = owee_motor.palabra_del_dia(hoy, sig["id"])
             extras.append(tarjeta(t("Aprende Owee · opcional"),
                                   ft.ListTile(dense=True, title=ft.Text(t("Lección {id} — {titulo}", id=sig["id"], titulo=sig["titulo"]), size=13),
-                                              on_click=lambda _: ir_owee())))
+                                              on_click=lambda _: ir_owee()),
+                                  *([ft.Text(f"{t('Palabra del día')}: {dia[0]} · {dia[1]}", size=12, color=ft.Colors.OUTLINE)] if dia else [])))
     return ft.Column([ft.Text(f"{t(dia)} {hoy.isoformat()}", theme_style=ft.TextThemeStyle.HEADLINE_SMALL),
                       sesion_de_hoy(st, n_rev, ir_repaso, ir_a_estudio, ir_material, hoy),
                       tarjeta(t("Esta semana"), barra_progreso(min(1, hs / meta), t("{h:.1f} de {meta:g} h ·", h=hs, meta=meta)),

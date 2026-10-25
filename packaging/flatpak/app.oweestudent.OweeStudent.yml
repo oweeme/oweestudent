@@ -25,7 +25,7 @@ modules:
       - install -Dm644 OweeStudent-*-linux/oweestudent.png /app/share/icons/hicolor/256x256/apps/app.oweestudent.OweeStudent.png
     sources:
       - type: archive
-        url: https://github.com/oweeme/oweestudent/releases/download/v0.13.1/OweeStudent-0.13.0-linux-x86_64.tar.gz
+        url: https://github.com/oweeme/oweestudent/releases/download/v0.14.0/OweeStudent-0.13.0-linux-x86_64.tar.gz
         sha256: REEMPLAZAR_CON_EL_SHA256_DE_LA_RELEASE
       - type: file
         path: app.oweestudent.OweeStudent.desktop

@@ -14,7 +14,7 @@ from i18n import marcar, t
 from ui import tema
 from ui.components import pomodoro_barra
 from ui.state import AppState
-from ui.views import (ajustes, aprende_owee, asistente, escribir_owee, espacio, estudio, estudios, hoy, entregas, escritor, exportar, importar, lecturas, login, material, plan,
+from ui.views import (ajustes, aprende_owee, asistente, diccionario_owee, escribir_owee, espacio, estudio, estudios, hoy, entregas, escritor, exportar, importar, lecturas, login, material, plan,
                       planes, practica, preguntar, repaso, retos, sincronizar, sprint, stats)
 
 TEMAS = {"dark": ft.ThemeMode.DARK, "light": ft.ThemeMode.LIGHT, "system": ft.ThemeMode.SYSTEM}
@@ -139,6 +139,7 @@ def main(page: ft.Page):
             pid = curso_owee.plan_del_curso(st.conn, st.perfil_id)
             if pid is None:
                 return None
+            curso_owee.actualizar_plan_del_curso(st.conn, pid)         # si el curso creció, aparecen las lecciones nuevas
             st.plan_id, st.espacio_tab = pid, "curso"
             return True
 
@@ -150,6 +151,7 @@ def main(page: ft.Page):
         def contenido_espacio(tab):
             return {"curso": lambda: aprende_owee.build(st, lambda: ir(ESPACIO)),
                     "escritura": lambda: escribir_owee.build(st),
+                    "diccionario": lambda: diccionario_owee.build(st),
                     "temario": lambda: plan.build(st, lambda: pestana("estudiar"), lambda: ir(ESPACIO), lambda: pestana("material")),
                     "material": lambda: material.build(st, lambda: ir(ESPACIO), abrir_plan),
                     "estudiar": lambda: estudio.build(st),

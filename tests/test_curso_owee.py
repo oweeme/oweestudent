@@ -17,9 +17,9 @@ def conn():
 
 def test_datos_del_curso():
     assert [n["n"] for n in NIVELES] == [0, 1, 2, 3]
-    assert [len(n["lecciones"]) for n in NIVELES] == [5, 11, 12, 7]
+    assert [len(n["lecciones"]) for n in NIVELES] == [5, 11, 15, 8]
     ids = [l["id"] for l in curso.lecciones()]
-    assert len(ids) == len(set(ids)) == 35 and ids[0] == "0.1" and ids[-1] == "3.7"
+    assert len(ids) == len(set(ids)) == 39 and ids[0] == "0.1"
 
 
 def test_todo_el_vocabulario_de_las_lecciones_tiene_significado():
@@ -51,7 +51,7 @@ def test_plan_del_curso_se_crea_una_sola_vez(conn):
     p = curso.crear_plan_del_curso(conn, 1)
     assert curso.crear_plan_del_curso(conn, 1) == p
     assert len(repo.unidades(conn, p)) == 4
-    assert sum(len(repo.temas(conn, u["id"])) for u in repo.unidades(conn, p)) == 35
+    assert sum(len(repo.temas(conn, u["id"])) for u in repo.unidades(conn, p)) == 39
     assert [c["nombre"] for c in repo.carpetas(conn, 1)] == ["Owee"]
     assert curso.estado_leccion(conn, p, "0.1") == "pendiente"
     curso.marcar_leccion(conn, p, "0.1", True)
@@ -120,3 +120,18 @@ def test_las_35_lecciones_se_dibujan_en_cualquier_idioma(conn, codigo):
             assert len(st_.controls) > 3, l["id"]
     finally:
         i18n.fijar_idioma("es")
+
+
+def test_un_curso_ya_anadido_recibe_las_lecciones_nuevas_sin_perder_el_progreso(conn):
+    p = curso.crear_plan_del_curso(conn, 1)
+    curso.marcar_leccion(conn, p, "0.1", True)
+    # el curso «crece»: se borran dos lecciones del plan y se renombra otra, como si el plan viniera de una versión anterior
+    ultimas = conn.execute("SELECT id FROM temas ORDER BY id DESC LIMIT 2").fetchall()
+    conn.executemany("DELETE FROM temas WHERE id=?", [(r["id"],) for r in ultimas])
+    conn.execute("UPDATE temas SET titulo='0.2 Titulo viejo' WHERE titulo LIKE '0.2 %'")
+    conn.commit()
+    assert curso.actualizar_plan_del_curso(conn, p) == 2
+    assert curso.actualizar_plan_del_curso(conn, p) == 0                       # repetirlo no duplica
+    titulos = [t["titulo"] for u in repo.unidades(conn, p) for t in repo.temas(conn, u["id"])]
+    assert len(titulos) == 39 and len(set(titulos)) == 39 and "0.2 Titulo viejo" not in titulos
+    assert curso.estado_leccion(conn, p, "0.1") == "completado"                # tu progreso sigue ahí
