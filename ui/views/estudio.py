@@ -3,7 +3,7 @@ import threading
 import flet as ft
 
 from database import repo
-from engine import ai, tarjetas as tj
+from engine import ai, sesion, tarjetas as tj
 from engine import nivel as niveles
 from i18n import marcar, t, tn
 
@@ -26,9 +26,12 @@ def build(st):
             tema.value = p.titulo or tema.value
         else:
             reloj.value, linea.value = f"{niveles.ajustes(st.nivel())['pomodoro'][0]:02d}:00", 0
+        if "refrescar" in estado_pasos and estado_pasos["pomodoro"] != (p.activo and p.tema_id == st.tema_id):
+            estado_pasos["refrescar"]()
         btn_pausa.text = t("Reanudar") if p.pausado else t("Pausar")
         btn_pausa.icon = ft.Icons.PLAY_ARROW if p.pausado else ft.Icons.PAUSE
 
+    estado_pasos = {"pomodoro": False}
     st.al_tick[:] = [f for f in st.al_tick if getattr(f, "_global", False)]      # deja solo el redibujado de la barra global
     st.al_tick.append(dibujar)
 
@@ -37,6 +40,7 @@ def build(st):
             st.toast(t("Primero elige un tema"))
             return
         st.iniciar_pomodoro(st.tema_id, st.tema_titulo)
+        refrescar_pasos()
 
     def pausar(_):
         p = st.pomodoro
@@ -50,8 +54,23 @@ def build(st):
     btn_pausa.on_click = pausar
     dibujar()
 
+    # ---------- sesión guiada ----------
+    pasos_col = ft.Column(spacing=2)
+
+    def refrescar_pasos(_=None):
+        pom_tema = st.pomodoro.activo and st.pomodoro.tema_id == st.tema_id
+        hechos = sesion.estado(st.conn, st.tema_id, pom_tema, bool((resumen.value or "").strip()))
+        sig = sesion.siguiente(hechos)
+        pasos_col.controls = [ft.Text(f"{'✅' if h else '⬜'} {i + 1}. {t(txt)}", size=13, weight=ft.FontWeight.BOLD if i == sig else None)
+                              for i, (txt, h) in enumerate(zip(sesion.PASOS, hechos))]
+        pasos_col.controls.append(ft.Text(t("¡Sesión completa! Mañana te toca repasar.") if sig is None else t("Siguiente: {paso}", paso=t(sesion.PASOS[sig])),
+                                          size=12, color=ft.Colors.PRIMARY))
+        estado_pasos["pomodoro"] = pom_tema
+    estado_pasos["refrescar"] = refrescar_pasos
+
     resumen = ft.TextField(label=t("Explícalo con tus palabras (Feynman / Active Recall)"),
                            multiline=True, min_lines=5)
+    resumen.on_change = lambda _: (refrescar_pasos(), st.page.update())
     calidad = ft.Slider(min=0, max=5, divisions=5, value=3, label="{value}")
 
     def guardar(_):
@@ -61,6 +80,7 @@ def build(st):
         prox = repo.guardar_nota(st.conn, st.tema_id, resumen.value.strip(), int(calidad.value))
         resumen.value = ""
         st.toast(t("Repaso programado: {fecha}", fecha=prox))
+        refrescar_pasos()
         st.page.update()
 
     feedback = ft.Text("", selectable=True)
@@ -80,6 +100,7 @@ def build(st):
         n = repo.crear_tarjetas(st.conn, st.tema_id, tj.desde_apuntes(apuntes.value), "apuntes")
         info_tj.value = tn(n, "{n} tarjeta creada (sin IA). Se repasa en «Repaso».", "{n} tarjetas creadas (sin IA). Se repasan en «Repaso».") if n else \
             t("No detecté definiciones. Usa el formato «Término: explicación» o **negritas**.")
+        refrescar_pasos()
         st.page.update()
 
     def tj_huecos(_):
@@ -90,6 +111,7 @@ def build(st):
         info_tj.value = tn(n, "{n} tarjeta con hueco creada. Revísala: tapé la palabra clave de cada frase.",
                            "{n} tarjetas con huecos creadas. Revísalas: tapé la palabra clave de cada frase.") if n else \
             t("No encontré frases adecuadas. Escribe frases completas o marca los huecos con {{...}}.")
+        refrescar_pasos()
         st.page.update()
 
     def tj_ia(_):
@@ -119,6 +141,7 @@ def build(st):
             repo.crear_tarjeta(st.conn, st.tema_id, q_manual.value, r_manual.value)
             q_manual.value = r_manual.value = ""
             info_tj.value = t("Tarjeta añadida")
+            refrescar_pasos()
             st.page.update()
 
     def evaluar(_):
@@ -139,12 +162,15 @@ def build(st):
             threading.Thread(target=hacer, daemon=True).start()
         st.page.update()
 
+    refrescar_pasos()
     return ft.Column([
         ft.Text(t("Estudiar"), theme_style=ft.TextThemeStyle.HEADLINE_SMALL), tema,
         ft.Row([reloj, fase], alignment=ft.MainAxisAlignment.START), linea,
         ft.Text(t("Puedes ir a leer o a otra pantalla: el reloj sigue corriendo y se ve arriba."), size=12),
         ft.Row([ft.ElevatedButton(t("Iniciar Pomodoro"), icon=ft.Icons.PLAY_ARROW, on_click=iniciar), btn_pausa,
                 ft.OutlinedButton(t("Detener"), icon=ft.Icons.STOP, on_click=parar)], wrap=True),
+        ft.Container(ft.Column([ft.Text(t("Tu sesión paso a paso"), weight=ft.FontWeight.BOLD), pasos_col], spacing=4), padding=10, border_radius=8,
+                     border=ft.border.all(1, ft.Colors.OUTLINE_VARIANT)),
         ft.Divider(), resumen, ft.Text(t("¿Qué tan bien lo recordaste? (0 nada – 5 perfecto)")), calidad,
         ft.Divider(), ft.Text(t("Tarjetas de repaso (tú creas las preguntas)"), weight=ft.FontWeight.BOLD),
         apuntes, ft.Row([ft.ElevatedButton(t("Crear tarjetas de mis apuntes"), icon=ft.Icons.STYLE, on_click=tj_offline),

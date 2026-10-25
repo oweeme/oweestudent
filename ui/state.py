@@ -23,6 +23,7 @@ class AppState:
         self.abrir_material = None     # (id de material, página): lo consume la pantalla de Material
         self.abrir_lectura = None      # id de lectura: lo consume la pantalla de Lecturas
         self.espacio_tab = "temario"   # pestaña abierta dentro del estudio activo (temario, material, estudiar, repaso, curso)
+        self.escritura_vista = None    # modo de la pestaña Escritura de Owee que debe abrirse (p. ej. «articulo»)
         self.pestana_practica = None   # pestaña de Práctica a abrir (la consume la pantalla)
         self.pomodoro = Pomodoro()
         self.al_tick = []              # funciones que redibujan el reloj (barra global y pantalla Estudiar)

@@ -4,12 +4,12 @@ from i18n import marcar, t
 from owee_curso.curso import TITULO_PLAN as TITULO_CURSO_OWEE
 from ui.components.widgets import barra_progreso
 
-NOMBRES = {"curso": marcar("Curso"), "escritura": marcar("Escritura"), "diccionario": marcar("Diccionario"), "temario": marcar("Temario"), "material": marcar("Material"), "estudiar": marcar("Estudiar"), "repaso": marcar("Repaso")}
+NOMBRES = {"curso": marcar("Curso"), "escritura": marcar("Escritura"), "diccionario": marcar("Diccionario"), "certificacion": marcar("Certificación"), "temario": marcar("Temario"), "material": marcar("Material"), "estudiar": marcar("Estudiar"), "repaso": marcar("Repaso")}
 
 
 def pestanas_de(titulo_plan: str) -> list[str]:
     """El curso de Owee añade su propia pestaña «Curso» (lecciones con glifos) al principio."""
-    return (["curso", "escritura", "diccionario"] if titulo_plan == TITULO_CURSO_OWEE else []) + ["temario", "material", "estudiar", "repaso"]
+    return (["curso", "escritura", "diccionario", "certificacion"] if titulo_plan == TITULO_CURSO_OWEE else []) + ["temario", "material", "estudiar", "repaso"]
 
 
 def build(st, contenido, cambiar, volver):

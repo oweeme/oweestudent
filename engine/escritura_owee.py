@@ -30,7 +30,7 @@ def ronda(pool: list[tuple[str, str]], n: int = 5, rng: random.Random | None = N
 
 
 def normalizar(texto: str) -> str:
-    return "".join(ch for ch in (texto or "").lower() if ch.isalpha())
+    return "".join(ch for ch in (texto or "").lower() if ch.isalnum())
 
 
 def comprobar(respuesta: str, palabra: str) -> bool:

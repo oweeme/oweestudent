@@ -1,6 +1,7 @@
 import flet as ft
 
 from database import repo
+from engine import certificacion_owee as cert
 from engine import escritura as escritor
 from engine import escritura_owee as motor
 from i18n import marcar, owee, t
@@ -8,6 +9,9 @@ from owee_curso import curso
 from ui.components.owee_texto import glifos
 from ui.components.teclado_owee import teclado
 
+OBJETIVOS = {"libre": (marcar("Práctica libre"), 200), "maestro_infantil": (marcar("Certificado de maestro infantil (300 palabras)"), 300),
+             "maestro_adultos": (marcar("Certificado de maestro de jóvenes y adultos (600 palabras)"), 600),
+             "examinador": (marcar("Certificado de examinador (800 palabras)"), 800)}
 MODOS_VISTA = {"taller": marcar("Taller libre"), "practica": marcar("Práctica"), "articulo": marcar("Artículo")}
 
 
@@ -15,7 +19,7 @@ def build(st, recargar=lambda: None):
     """Escribir en Owee Script dentro de la app: un taller libre (teclado de sílabas) y rondas de práctica con las palabras
     del curso. Las palabras que fallas se añaden a «Repaso»."""
     c = st.conn
-    est = {"vista": "taller", "ronda": None, "i": 0, "ok": 0, "respondida": False, "art": None, "sec": None}
+    est = {"vista": st.escritura_vista or "taller", "ronda": None, "i": 0, "ok": 0, "respondida": False, "art": None, "sec": None}
     cuerpo = ft.Column(spacing=10, scroll=ft.ScrollMode.AUTO, expand=True, horizontal_alignment=ft.CrossAxisAlignment.STRETCH)
     escrito: list[str] = []                      # lo compuesto con el teclado, en romano
 
@@ -169,10 +173,12 @@ def build(st, recargar=lambda: None):
         plan_id = curso.plan_del_curso(c, st.perfil_id)
         lista = escritor.escritos(c, plan_id) if plan_id else []
         titulo = ft.TextField(label=t("Título del artículo"), width=320, dense=True)
+        objetivo = ft.Dropdown(label=t("Objetivo"), width=360, dense=True, value="libre",
+                               options=[ft.dropdown.Option(k, t(v[0])) for k, v in OBJETIVOS.items()])
 
         def crear(_):
             if plan_id and (titulo.value or "").strip():
-                est["art"], est["sec"] = escritor.crear_escrito(c, plan_id, titulo.value, "ensayo", meta_palabras=300), None
+                est["art"], est["sec"] = escritor.crear_escrito(c, plan_id, titulo.value, "ensayo", meta_palabras=OBJETIVOS[objetivo.value or "libre"][1]), None
                 mostrar_editor()
         filas = [ft.ListTile(dense=True, leading=ft.Icon(ft.Icons.ARTICLE), title=ft.Text(e["titulo"]),
                              subtitle=ft.Text(t("{n} palabras", n=escritor.progreso(c, e["id"])["palabras"]), size=11),
@@ -180,7 +186,7 @@ def build(st, recargar=lambda: None):
         cuerpo.controls = [selector(),
                            ft.Text(t("Escribe un texto más largo en Owee, por secciones, y valora lo que has aprendido: la app revisa tus palabras y tu vocabulario."), size=13),
                            *(filas or [ft.Text(t("Aún no tienes artículos. Crea el primero."))]),
-                           ft.Row([titulo, ft.ElevatedButton(t("＋ Nuevo artículo"), icon=ft.Icons.ADD, on_click=crear)], wrap=True)]
+                           ft.Row([titulo, objetivo, ft.ElevatedButton(t("＋ Nuevo artículo"), icon=ft.Icons.ADD, on_click=crear)], wrap=True)]
         st.page.update()
 
     def abrir(art_id):
@@ -234,6 +240,17 @@ def build(st, recargar=lambda: None):
                     lineas.append(ft.Text(t("No están en el léxico (¿errata o palabra nueva?): {lista}", lista=", ".join(v["desconocidas"])), color=ft.Colors.AMBER_400))
                 if not v["invalidas"] and not v["desconocidas"]:
                     lineas.append(ft.Text(t("✅ Sin errores de escritura. Prueba oraciones más largas o más variedad de palabras."), color=ft.Colors.GREEN_400))
+            if art["meta_palabras"] in (300, 600, 800) and v["palabras"]:          # artículo para el certificado de maestro o examinador
+                r = cert.revisar_articulo(todo, art["meta_palabras"])
+                marca = lambda ok: "✅" if ok else "⬜"      # noqa: E731
+                lineas += [ft.Divider(),
+                           ft.Text(t("Revisión para el certificado"), weight=ft.FontWeight.BOLD),
+                           ft.Text(f"{marca(r['extension_ok'])} " + t("Extensión: {n} de {m} palabras", n=v["palabras"], m=r["minimo"])),
+                           ft.Text(f"{marca(r['sin_errores'])} " + t("Solo palabras válidas en Owee")),
+                           ft.Text(f"{marca(len(r['compuestos']) >= 3)} " + t("Compuestos: {n} (usa varios)", n=len(r["compuestos"]))),
+                           ft.Text(f"{marca(r['pasado'] and r['futuro'])} " + t("Tiempos: pasado `pe` y futuro `pu`")),
+                           ft.Text(f"{marca(len(r['enlaces']) >= 2)} " + t("Palabras de enlace: {lista}", lista=", ".join(r["enlaces"]) or "—")),
+                           ft.Text(t("Cuando esté listo, publícalo en tu blog de oweeme.com con tu video de YouTube y pide tu examen. El examinador revisa la corrección, la claridad, la variedad y la reflexión."), size=12, italic=True)]
             valoracion.controls = lineas
             st.page.update()
 
@@ -262,5 +279,6 @@ def build(st, recargar=lambda: None):
     def mostrar():
         {"taller": mostrar_taller, "practica": mostrar_practica, "articulo": mostrar_articulos}[est["vista"]]()
 
+    st.escritura_vista = None
     mostrar()
     return cuerpo
